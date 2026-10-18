@@ -20,7 +20,7 @@ export type Photo = {
   room: RoomKey;
 };
 
-/** The five photos in the hero mosaic, in display order (first = large tile). */
+/** The five photos in the hero mosaic */
 export const HERO_PHOTOS: Photo[] = [
   { src: livingRoom3, room: "living", alt: "Living room with grey velvet sofa, Smart TV and breakfast bar by the window" },
   { src: bedroom2b, room: "bedrooms", alt: "Double bedroom with grey velvet headboard and a work desk" },
@@ -29,5 +29,5 @@ export const HERO_PHOTOS: Photo[] = [
   { src: exterior2, room: "outside", alt: "Front of the house with private driveway parking" },
 ];
 
-/** Total photo count shown on "View all photos" — update as you add more. */
+
 export const TOTAL_PHOTOS = 32;

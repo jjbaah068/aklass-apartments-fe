@@ -1,7 +1,7 @@
 import { useId, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { EASE, fadeUp, stagger } from "./reveal";
-import { HERO_PHOTOS, TOTAL_PHOTOS } from "../apartmentPhotos";
+import { HERO_PHOTOS } from "../apartmentPhotos";
 
 const FACTS = [
   { label: "4 bedrooms", d: "M3 18v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6M3 18h18M3 21v-3M21 21v-3M6 10V7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3M12 10V7a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3" },
@@ -13,21 +13,20 @@ const FACTS = [
 ];
 
 type Props = {
-  /** Opens the photo viewer at a given photo (wire up once PhotoViewer exists). */
+
   onOpenPhoto?: (index: number) => void;
-  /** Opens the photo viewer showing all photos. */
   onOpenAll?: () => void;
 };
 
-function GridIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z" />
-    </svg>
-  );
-}
+// function GridIcon() {
+//   return (
+//     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+//       <path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z" />
+//     </svg>
+//   );
+// }
 
-export default function ApartmentHero({ onOpenPhoto, onOpenAll }: Props) {
+export default function ApartmentHero({ onOpenPhoto }: Props) {
   const id = useId();
   const trackRef = useRef<HTMLDivElement>(null);
   const [slide, setSlide] = useState(0);
@@ -182,14 +181,14 @@ export default function ApartmentHero({ onOpenPhoto, onOpenAll }: Props) {
         >
           {slide + 1} / {HERO_PHOTOS.length}
         </span>
-        <button
+        {/* <button
           type="button"
           onClick={() => onOpenAll?.()}
           className="btn btn-sm absolute bottom-3 left-3 border-white bg-white/95 text-navy-900 shadow-raised"
         >
           <GridIcon />
           All {TOTAL_PHOTOS} photos
-        </button>
+        </button> */}
 
         {/* Dots */}
         <div className="mt-3 flex justify-center gap-1.5" aria-hidden="true">
