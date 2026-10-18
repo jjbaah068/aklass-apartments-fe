@@ -35,7 +35,7 @@ import foyer2 from "./assets/images/foyer1.webp";
 
 
 /* Garden & parking */
-import carPark2 from "./assets/images/image1.jpg"; 
+import carPark2 from "./assets/images/image1.webp"; 
 
 
 

@@ -2,7 +2,7 @@ import { useId } from "react";
 import { Link } from "react-router";
 import { motion } from "motion/react";
 import { Reveal, RevealGroup, RevealItem, EASE } from "./reveal";
-import exterior from "../assets/images/image1.jpg"; 
+import exterior from "../assets/images/image1.webp"; 
 
 const WHATSAPP_URL = "https://wa.me/447947377995";
 

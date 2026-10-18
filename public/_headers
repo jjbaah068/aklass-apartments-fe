@@ -1,0 +1,4 @@
+# Vite gives built files a unique hash in their name (e.g. kitchen-8-Bx3k.webp),
+# so they can be cached "forever" — returning visitors load them instantly.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
