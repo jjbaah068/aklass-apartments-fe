@@ -3,11 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { fadeUp, imageReveal, stagger, withDelay } from "./reveal";
 import hero1 from '../assets/images/herobg.webp'
-import img1 from '../assets/images/image1.jpg'
+
 
 /* Images*/
 const HERO_IMAGE = hero1;
-const EXTERIOR_IMAGE = img1;
+
 
 const MAX_GUESTS = 7;
 const BOOK_PATH = "/book";
