@@ -194,7 +194,7 @@ export default function Book() {
     });
   }
 
-  /* ---------- Step 3: pay ---------- */
+  /* Step 3: pay  */
   function pay() {
     if (!hold || holdExpired) return;
     setBusy(true);
