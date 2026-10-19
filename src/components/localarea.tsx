@@ -51,14 +51,14 @@ const CATEGORY_LABEL: Record<CategoryKey, string> = {
 };
 
 const PLACES: Place[] = [
-  { id: "bp", name: "BP petrol station", category: "transport", miles: 1, angle: 300, blurb: "Fuel, snacks and essentials — handy on the way in or out.", query: "BP petrol station Bushbury Wolverhampton" },
+  { id: "bp", name: "BP petrol station", category: "transport", miles: 1, angle: 300, blurb: "Fuel, snacks and essentials handy on the way in or out.", query: "BP petrol station Bushbury Wolverhampton" },
   { id: "aldi", name: "Aldi", category: "shopping", miles: 1.2, angle: 40, blurb: "The closest supermarket for a first-night shop.", query: "Aldi Wolverhampton WV10" },
 //   { id: "northycote", name: "Northycote Farm", category: "attractions", miles: 1.5, angle: 150, blurb: "Farm and country park with open green space — good for a family walk.", query: "Northycote Farm Wolverhampton" },
 //   { id: "lidl", name: "Lidl", category: "shopping", miles: 1.9, angle: 95, blurb: "Another budget-friendly option for groceries.", query: "Lidl Wolverhampton WV10" },
   { id: "morrisons", name: "Morrisons", category: "shopping", miles: 2, angle: 230, blurb: "Large supermarket for a bigger weekly shop.", query: "Morrisons Wolverhampton" },
   { id: "station", name: "Wolverhampton railway station", category: "transport", miles: 2.8, angle: 200, blurb: "Direct trains to Birmingham, London and beyond.", query: "Wolverhampton railway station" },
   { id: "racecourse", name: "Wolverhampton Racecourse", category: "attractions", miles: 2.8, angle: 330, blurb: "Horse racing, including evening meetings under floodlights.", query: "Wolverhampton Racecourse" },
-  { id: "molineux", name: "Molineux Stadium", category: "attractions", miles: 3, angle: 250, blurb: "Home of Wolverhampton Wanderers — ideal for match-day stays.", query: "Molineux Stadium Wolverhampton" },
+  { id: "molineux", name: "Molineux Stadium", category: "attractions", miles: 3, angle: 250, blurb: "Home of Wolverhampton Wanderers ideal for match-day stays.", query: "Molineux Stadium Wolverhampton" },
   { id: "bentley", name: "Bentley Bridge Leisure Park", category: "attractions", miles: 3, angle: 60, blurb: "Cinema, restaurants and shops in one place for an easy evening out.", query: "Bentley Bridge Leisure Park Wednesfield" },
 //   { id: "asda", name: "Asda", category: "shopping", miles: 3, angle: 120, blurb: "Big-store range including household and baby essentials.", query: "Asda Wolverhampton" },
   { id: "newcross", name: "New Cross Hospital", category: "health", miles: 3, angle: 15, blurb: "The main local hospital, with an A&E department.", query: "New Cross Hospital Wolverhampton" },
@@ -71,7 +71,7 @@ function mapsUrl(query: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
-/** Position of a place on the ring map, as % from the top-left */
+/** Position of a place on the ring map */
 function position(p: Place) {
   const r = (p.miles / MAX_MILES) * 46;
   const rad = (p.angle * Math.PI) / 180;
@@ -86,10 +86,7 @@ function Icon({ d, className = "" }: { d: string; className?: string }) {
   );
 }
 
-/**
- * Photo of a place, or its category icon if there's no photo yet.
- * `className` (size, rounding, ring) is shared by both, so nothing jumps when photos arrive.
- */
+
 function PlaceThumb({
   place,
   className,
@@ -97,9 +94,9 @@ function PlaceThumb({
   fallbackClassName,
 }: {
   place: Place;
-  className: string; // size + rounding + ring, shared by photo and fallback
+  className: string; 
   iconClassName: string;
-  fallbackClassName: string; // background/colour for the icon version
+  fallbackClassName: string; 
 }) {
   const src = imageFor(place.id);
   if (src) {
@@ -287,7 +284,7 @@ export default function LocalArea() {
               </p>
             </div>
 
-            {/* Active place detail — photo on top when there is one */}
+            {/* Active place detail  */}
             <div aria-live="polite" className="mx-auto mt-4 max-w-[560px]">
               <AnimatePresence mode="wait">
                 {active && (

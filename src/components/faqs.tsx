@@ -13,16 +13,16 @@ const TOPICS: { key: TopicKey | "all"; label: string }[] = [
   { key: "stay", label: "Your stay" },
 ];
 
-/* Anything in [SQUARE BRACKETS] still needs the owner's real answer. */
+/* Anything */
 const FAQS: Faq[] = [
   // Booking & payment
   { topic: "booking", q: "What happens if I don't finish paying?", a: "Your dates are held for 30 minutes while you pay. If payment isn't completed in that time, the dates are released and nothing is charged." },
-  { topic: "booking", q: "What is the cancellation policy?", a: "[CANCELLATION POLICY — e.g. full refund up to N days before check-in.] The full terms are in our booking terms." },
+  { topic: "booking", q: "What is the cancellation policy?", a: "[CANCELLATION POLICY  e.g. full refund up to N days before check-in.] The full terms are in our booking terms." },
 
   // Your stay
   { topic: "stay", q: "What time is check-in and check-out?", a: "Check-in is between 3:00 and 7:00 PM, and check-out is by 11:00 AM. Early check-in or late check-out can be arranged on request, subject to availability." },
   { topic: "stay", q: "When will I get the address?", a: "The full address and arrival instructions are emailed to you once your booking is confirmed. We don't publish the exact address online for guests' privacy and security." },
-  { topic: "stay", q: "Will we share the house with anyone?", a: "No. You book the entire house — there are no other paying guests during your stay." },
+  { topic: "stay", q: "Will we share the house with anyone?", a: "No. You book the entire house there are no other paying guests during your stay." },
   { topic: "stay", q: "How many people can stay?", a: "Up to 7 guests. There are 4 private bedrooms (each with a desk), 2 bathrooms and 2 living rooms." },
   { topic: "stay", q: "Is there parking?", a: "Yes, there is designated parking at the house." },
   { topic: "stay", q: "Is there Wi-Fi and somewhere to work?", a: "Yes. There's fast Wi-Fi throughout, a desk in every bedroom and a dining/working area. Wi-Fi details are included in your arrival information." },
@@ -185,7 +185,7 @@ export default function FAQs() {
             </ul>
           </Reveal>
 
-          {/* Help card moves under the list on smaller screens */}
+          {/* Help card moves  */}
           <Reveal className="mt-10 lg:hidden">
             <HelpCard />
           </Reveal>
