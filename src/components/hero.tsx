@@ -45,7 +45,7 @@ export default function Hero() {
 
   const minCheckOut = checkIn ? addDays(checkIn, 1) : addDays(today, 1);
 
-  /* ---------- Sticky bar: show it once the form has scrolled up out of view ---------- */
+  /* ---------- Sticky bar */
   const formRef = useRef<HTMLFormElement>(null);
   const [showSticky, setShowSticky] = useState(false);
 

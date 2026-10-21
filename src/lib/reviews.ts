@@ -1,28 +1,16 @@
-/**
- * Guest reviews: types, the demo reviews, and the call to the backend.
- *
- * Only guests who actually stayed can review. After check-out they get an email with a private
- * link that only works for their booking. The owner can reply to a review, or hide it if it's
- * spam or abusive (never just because it's negative).
- *
- * DEMO MODE (no VITE_API_URL): uses the sample reviews below.
- * LATER: GET /reviews returns the published reviews and the score summary.
- */
 import { IS_DEMO } from "./booking";
 
 const API_URL = import.meta.env.VITE_API_URL as string | undefined;
 
 /* ---------- Settings ---------- */
 
-/** Until we have this many direct reviews, show the Airbnb rating instead. */
 export const MIN_REVIEWS_TO_SHOW = 3;
 
-/** The Airbnb listing, used while there are fewer than MIN_REVIEWS_TO_SHOW direct reviews.
- *  TODO: put the real listing link here and update the numbers now and then. */
+
 export const AIRBNB = {
   rating: 4.64,
   count: 11,
-  url: "https://www.airbnb.co.uk/", // ← replace with the listing's link
+  url: "https://www.airbnb.co.uk/", 
 };
 
 /* ---------- Types ---------- */
@@ -40,20 +28,20 @@ export const CATEGORIES: { key: CategoryKey; label: string; icon: string }[] = [
 
 export type Review = {
   id: string;
-  name: string; // first name only, as the guest chose
-  stayedOn: string; // "YYYY-MM" (month of the stay)
-  tripType?: string; // e.g. "Family visit"
-  rating: number; // overall 1–5
-  categories: Record<CategoryKey, number>; // each 1–5
+  name: string; 
+  stayedOn: string; 
+  tripType?: string; 
+  rating: number; 
+  categories: Record<CategoryKey, number>;
   text: string;
-  reply?: { text: string; date: string }; // owner's reply, date "YYYY-MM-DD"
+  reply?: { text: string; date: string }; 
 };
 
 export type ReviewSummary = {
   count: number;
-  average: number; // overall, 1 decimal place
-  distribution: Record<1 | 2 | 3 | 4 | 5, number>; // how many reviews gave each star rating
-  categories: Record<CategoryKey, number>; // averages, 1 decimal place
+  average: number; 
+  distribution: Record<1 | 2 | 3 | 4 | 5, number>; 
+  categories: Record<CategoryKey, number>;
 };
 
 export type ReviewSort = "newest" | "highest" | "lowest";
@@ -155,11 +143,11 @@ export const TRIP_TYPES = ["Family visit", "Holiday", "Group trip", "Work trip",
 
 export const REVIEW_RULES = { minText: 30, maxText: 1000 };
 
-/** What the guest is allowed to review (from the email link, or after the booking check) */
+
 export type ReviewInvite = {
-  token: string; // proves which booking this review is for
+  token: string; 
   firstName: string;
-  stayedFrom: string; // "YYYY-MM-DD"
+  stayedFrom: string;
   stayedTo: string;
 };
 
@@ -170,7 +158,7 @@ export type NewReview = {
   text: string;
   displayName: string;
   confirmedGenuine: true;
-  website: string; // hidden "honeypot" field: real people leave it empty, spam bots fill it in
+  website: string; 
 };
 
 export type ReviewErrorCode = "NOT_FOUND" | "NOT_FINISHED" | "ALREADY_REVIEWED" | "LINK_EXPIRED" | "NETWORK" | "UNKNOWN";
@@ -206,10 +194,7 @@ function demoInvite(ref: string, email: string): ReviewInvite {
   return { token: `demo-${ref}`, firstName: name.charAt(0).toUpperCase() + name.slice(1).toLowerCase(), stayedFrom: iso(6), stayedTo: iso(3) };
 }
 
-/**
- * Checks the booking reference + email. Works only for a finished stay that hasn't been reviewed yet.
- * Demo: any reference starting AKL- or ALS- works, except AKL-FUTURE (stay not finished) and AKL-DONE (already reviewed).
- */
+
 export async function verifyBookingForReview(bookingRef: string, email: string): Promise<ReviewInvite> {
   const ref = bookingRef.trim().toUpperCase();
   if (IS_DEMO) {

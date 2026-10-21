@@ -1,6 +1,3 @@
-/**
- * /reviews: every published guest review, with the score summary, star filter and sorting.
- */
 import { useEffect, useId, useMemo, useState } from "react";
 import { Link } from "react-router";
 import Navbar from "../components/navbar";

@@ -1,9 +1,3 @@
-/**
- * /reviews/new: a guest leaves a review.
- *  1. Check the booking (reference + email). Skipped when they come from the email link (?token=…).
- *  2. Stars (overall + 6 categories), trip type, review text and the name to show.
- *  3. Thank you. The review goes to the admin dashboard as "New" and appears once published.
- */
 import { useEffect, useId, useState, type FormEvent } from "react";
 import { Link, useSearchParams } from "react-router";
 import { AnimatePresence, motion } from "motion/react";
