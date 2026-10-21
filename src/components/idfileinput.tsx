@@ -1,7 +1,4 @@
-/**
- * One ID photo upload box: tap to choose (or drag a file onto it on a computer),
- * shows a preview, and lets the guest replace or remove the file.
- */
+
 import { useEffect, useRef, useState, type DragEvent } from "react";
 import { ID_RULES, checkIdFile } from "../lib/booking";
 

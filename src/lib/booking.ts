@@ -87,8 +87,8 @@ export const ID_TYPES: { value: IdType; label: string; hint: string; needsBack: 
 export const ID_RULES = {
   maxBytes: 10 * 1024 * 1024, // 10 MB
   accept: ["image/jpeg", "image/png", "application/pdf"],
-  acceptAttr: "image/jpeg,image/png,application/pdf", // iPhones convert HEIC photos to JPEG automatically
-  deleteAfterDays: 30, // ID photos are deleted this many days after check-out
+  acceptAttr: "image/jpeg,image/png,application/pdf", 
+  deleteAfterDays: 30, 
 };
 
 export type IdUpload = {
