@@ -146,7 +146,7 @@ export default function LocalArea() {
           <div>
             <p className="eyebrow">Local area</p>
             <h2 id={`${id}-title`} className="mt-2 text-h2 md:text-[46px] md:leading-[1.1]">
-              Everything within three miles
+              Explore the local area
             </h2>
           </div>
           {/* <p className="max-w-[28rem] text-body text-ink-muted">

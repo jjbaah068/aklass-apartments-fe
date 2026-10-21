@@ -1,7 +1,8 @@
-import { useId, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "motion/react";
 import { fadeUp, imageReveal, stagger, withDelay } from "./reveal";
+import StickyBooking from "./stickybooking";
 import hero1 from '../assets/images/herobg.webp'
 
 
@@ -44,11 +45,35 @@ export default function Hero() {
 
   const minCheckOut = checkIn ? addDays(checkIn, 1) : addDays(today, 1);
 
+  /* ---------- Sticky bar: show it once the form has scrolled up out of view ---------- */
+  const formRef = useRef<HTMLFormElement>(null);
+  const [showSticky, setShowSticky] = useState(false);
+
+   useEffect(() => {
+    const form = formRef.current;
+    if (!form || !("IntersectionObserver" in window)) return;
+    const watcher = new IntersectionObserver(([entry]) => {
+      setShowSticky(!entry.isIntersecting && entry.boundingClientRect.top < 0);
+    });
+    watcher.observe(form);
+    return () => watcher.disconnect();
+  }, []);
+
   function handleCheckIn(value: string) {
     setCheckIn(value);
     setError("");
     // Keep check-out valid if the new check-in moves past it
     if (checkOut && value && checkOut <= value) setCheckOut(addDays(value, 1));
+  }
+
+  /* Sticky card button: go to /book, taking any valid dates and guests along */
+  function goToBook() {
+    const params = new URLSearchParams({ guests: String(guests) });
+    if (checkIn && checkOut && checkOut > checkIn) {
+      params.set("checkIn", checkIn);
+      params.set("checkOut", checkOut);
+    }
+    navigate(`${BOOK_PATH}?${params.toString()}`);
   }
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -110,7 +135,7 @@ export default function Hero() {
           animate="show"
           variants={stagger(0.1, 0.15)}
         >
-          <motion.p variants={fadeUp} className="eyebrow">Bushbury · Wolverhampton WV10</motion.p>
+          <motion.p variants={fadeUp} className="eyebrow">Wolverhampton WV10</motion.p>
 
           <motion.h1 variants={fadeUp} id={`${id}-title`} className="text-display-hero mt-3 text-navy-900">
             Your Comfort, Our Priority
@@ -143,6 +168,7 @@ export default function Hero() {
 
         {/* Booking bar — spans the full width under both columns */}
         <motion.form
+          ref={formRef}
           onSubmit={handleSubmit}
           noValidate
           aria-label="Check availability"
@@ -222,6 +248,16 @@ export default function Hero() {
           </div>
         </motion.form>
       </div>
+
+      {/* Follows the guest down the page once the form above is out of view */}
+      <StickyBooking
+        visible={showSticky}
+        checkIn={checkIn}
+        checkOut={checkOut}
+        guests={guests}
+        maxGuests={MAX_GUESTS}
+        onBook={goToBook}
+      />
     </section>
   );
 }

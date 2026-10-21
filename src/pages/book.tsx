@@ -6,9 +6,12 @@ import Footer from "../components/footer";
 import { EASE } from "../components/reveal";
 import DateRangeCalendar from "../components/daterangecalendar";
 import StaySummary from "../components/staysummary";
+import IdFileInput from "../components/idfileinput";
 import {
   BOOKING,
   BookingError,
+  ID_RULES,
+  ID_TYPES,
   IS_DEMO,
   addDays,
   createHold,
@@ -19,14 +22,16 @@ import {
   nightsBetween,
   rangeIsFree,
   todayISO,
+  uploadId,
   type GuestDetails,
+  type IdType,
   type Hold,
   type Quote,
 } from "../lib/booking";
 
-type Step = 1 | 2 | 3;
+type Step = 1 | 2 | 3 | 4;
 
-const STEPS = ["Dates & guests", "Your details", "Review & pay"];
+const STEPS = ["Dates & guests", "Your details", "Verify ID", "Review & pay"];
 
 const COUNTRY_CODES = [
   { code: "+44", label: "UK +44" },
@@ -52,6 +57,18 @@ function validateDetails(d: GuestDetails, agree: boolean): DetailErrors {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email.trim())) e.email = "Enter an email address like name@example.com.";
   if (!/^[\d\s()-]{6,18}$/.test(d.phone.trim())) e.phone = "Enter a phone number so we can reach you about your stay.";
   if (!agree) e.agree = "You need to agree to the house rules and booking terms to continue.";
+  return e;
+}
+
+type IdErrors = { type?: string; front?: string; back?: string; consent?: string };
+
+function validateId(type: IdType | null, front: File | null, back: File | null, consent: boolean): IdErrors {
+  const e: IdErrors = {};
+  const rule = ID_TYPES.find((t) => t.value === type);
+  if (!rule) e.type = "Choose the type of ID you're uploading.";
+  if (!front) e.front = rule?.needsBack ? "Add a photo of the front." : "Add a photo of the photo page.";
+  if (rule?.needsBack && !back) e.back = "Add a photo of the back.";
+  if (!consent) e.consent = "You need to agree to the ID check to continue.";
   return e;
 }
 
@@ -84,7 +101,15 @@ export default function Book() {
   const [agree, setAgree] = useState(false);
   const [errors, setErrors] = useState<DetailErrors>({});
 
+  // Step 3: ID verification (kept if the guest goes back, so they don't upload again)
+  const [idType, setIdType] = useState<IdType | null>(null);
+  const [idFront, setIdFront] = useState<File | null>(null);
+  const [idBack, setIdBack] = useState<File | null>(null);
+  const [idConsent, setIdConsent] = useState(false);
+  const [idErrors, setIdErrors] = useState<IdErrors>({});
+
   const [hold, setHold] = useState<Hold | null>(null);
+  const lastHoldRef = useRef<string | null>(null); // the most recent hold, so the server can release it if we re-hold
   const [holdLeft, setHoldLeft] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [flowError, setFlowError] = useState<{ title: string; body: string } | null>(null);
@@ -156,21 +181,39 @@ export default function Book() {
     setFlowError(null);
   }
 
-  /* ---------- Step 2 → 3: validate details, create hold ---------- */
-  async function submitDetails(e: FormEvent<HTMLFormElement>) {
+  /* ---------- Step 2 → 3: check the guest's details ---------- */
+  function submitDetails(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const found = validateDetails(details, agree);
     setErrors(found);
     const first = Object.keys(found)[0];
     if (first) { document.getElementById(`${id}-${first}`)?.focus(); return; }
     if (!checkIn || !checkOut) { goTo(1); return; }
+    goTo(3);
+  }
 
+  /* ---------- Step 3 → 4: check the ID, hold the dates, upload the ID ---------- */
+  async function submitId(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const found = validateId(idType, idFront, idBack, idConsent);
+    setIdErrors(found);
+    const first = Object.keys(found)[0];
+    if (first) { document.getElementById(`${id}-id-${first}`)?.focus(); return; }
+    if (!checkIn || !checkOut || !idType || !idFront) { goTo(1); return; }
+
+    const needsBack = ID_TYPES.find((t) => t.value === idType)?.needsBack ?? false;
     setBusy(true);
     setFlowError(null);
     try {
-      const h = await createHold({ checkIn, checkOut, guests, details, agreedToTerms: true });
+      // Reuse the current hold if the upload failed last time; otherwise hold the dates now
+      // (and tell the server to release any earlier hold, so it doesn't block our own dates).
+      const h = hold && !holdExpired
+        ? hold
+        : await createHold({ checkIn, checkOut, guests, details, idType, agreedToTerms: true, agreedToIdCheck: true, previousRef: lastHoldRef.current ?? undefined });
+      lastHoldRef.current = h.bookingRef;
       setHold(h);
-      goTo(3);
+      await uploadId(h.bookingRef, { type: idType, front: idFront, back: needsBack ? idBack : null, consent: true });
+      goTo(4);
     } catch (err) {
       handleBookingError(err);
     } finally {
@@ -194,11 +237,11 @@ export default function Book() {
     });
   }
 
-  /* Step 3: pay  */
+  /* Step 4: pay  */
   function pay() {
     if (!hold || holdExpired) return;
     setBusy(true);
-    if (hold.checkoutUrl.startsWith("http")) window.location.assign(hold.checkoutUrl); // Stripe Checkout
+    if (hold.checkoutUrl.startsWith("http")) window.location.assign(hold.checkoutUrl); // SumUp hosted checkout
     else navigate(hold.checkoutUrl); // demo mode
   }
 
@@ -213,7 +256,7 @@ export default function Book() {
         guests={guests}
         quote={quote}
         quoteLoading={quoteLoading}
-        holdSecondsLeft={step === 3 ? holdLeft : null}
+        holdSecondsLeft={step === 4 ? holdLeft : null}
       />
     ),
     [checkIn, checkOut, guests, quote, quoteLoading, step, holdLeft],
@@ -246,7 +289,7 @@ export default function Book() {
           </div>
 
           {/* Step indicator */}
-          <ol aria-label="Booking steps" className="mb-8 grid grid-cols-3 gap-2 sm:gap-4">
+          <ol aria-label="Booking steps" className="mb-8 grid grid-cols-4 gap-2 sm:gap-4">
             {STEPS.map((label, i) => {
               const n = (i + 1) as Step;
               const done = step > n;
@@ -381,6 +424,7 @@ export default function Book() {
                         <div className="field-group">
                           <label htmlFor={`${id}-fullName`} className="field-label">Full name</label>
                           <input {...field("fullName")} className="field" autoComplete="name" value={details.fullName} onChange={(e) => setDetails({ ...details, fullName: e.target.value })} />
+                          {!errors.fullName && <p className="field-hint">Exactly as it appears on your photo ID.</p>}
                           <Err id={`${id}-fullName-err`} msg={errors.fullName} />
                         </div>
                         <div className="field-group">
@@ -429,17 +473,19 @@ export default function Book() {
 
                       <div className="flex flex-col-reverse gap-3 border-t border-line pt-6 sm:flex-row sm:justify-between">
                         <button type="button" className="btn btn-outline" onClick={() => goTo(1)}>Back</button>
-                        <button type="submit" className="btn btn-primary sm:px-8" disabled={busy} aria-busy={busy}>
-                          {busy ? "Holding your dates…" : "Review booking"}
+                        <button type="submit" className="btn btn-primary sm:px-8">
+                          Continue to ID check
                         </button>
                       </div>
                     </motion.form>
                   )}
 
-                  {/* ===== STEP 3 ===== */}
-                  {step === 3 && checkIn && checkOut && (
-                    <motion.section
+                  {/* ===== STEP 3: VERIFY ID ===== */}
+                  {step === 3 && (
+                    <motion.form
                       key="s3"
+                      noValidate
+                      onSubmit={submitId}
                       aria-labelledby={`${id}-s3`}
                       initial={{ opacity: 0, x: 16 }}
                       animate={{ opacity: 1, x: 0 }}
@@ -447,7 +493,134 @@ export default function Book() {
                       transition={{ duration: 0.35, ease: EASE }}
                       className="flex flex-col gap-6"
                     >
-                      <h2 id={`${id}-s3`} className="text-h3">Check everything looks right</h2>
+                      <div>
+                        <h2 id={`${id}-s3`} className="text-h3">Verify your ID</h2>
+                        <p className="mt-2 text-small text-ink-subtle">
+                          For everyone's safety, the lead guest shows a photo ID before we confirm the booking.
+                          We'll check the name matches <span className="font-semibold text-navy-900">{details.fullName.trim() || "the name you gave"}</span>.
+                        </p>
+                      </div>
+
+                      {/* ID type */}
+                      <fieldset className="field-group" aria-describedby={idErrors.type ? `${id}-id-type-err` : undefined}>
+                        <legend className="field-label">Type of ID</legend>
+                        <div className="grid gap-3 sm:grid-cols-3">
+                          {ID_TYPES.map((t, i) => {
+                            const selected = idType === t.value;
+                            return (
+                              <label
+                                key={t.value}
+                                className={`flex cursor-pointer flex-col gap-0.5 rounded-card border p-4 transition-colors has-[input:focus-visible]:outline-2 has-[input:focus-visible]:outline-offset-2 has-[input:focus-visible]:outline-navy-700 ${
+                                  selected ? "border-navy-900 bg-navy-50 ring-1 ring-navy-900" : "border-line bg-white hover:border-navy-300"
+                                }`}
+                              >
+                                <input
+                                  type="radio"
+                                  name={`${id}-idtype`}
+                                  id={i === 0 ? `${id}-id-type` : undefined}
+                                  className="sr-only"
+                                  checked={selected}
+                                  onChange={() => {
+                                    setIdType(t.value);
+                                    if (!t.needsBack) setIdBack(null);
+                                    setIdErrors((x) => ({ ...x, type: undefined }));
+                                  }}
+                                />
+                                <span className="flex items-center justify-between font-semibold text-navy-900">
+                                  {t.label}
+                                  <span aria-hidden="true" className={`flex size-5 items-center justify-center rounded-full border ${selected ? "border-navy-900 bg-navy-900" : "border-slate-300"}`}>
+                                    {selected && <span className="size-2 rounded-full bg-white" />}
+                                  </span>
+                                </span>
+                                <span className="text-[13px] text-ink-subtle">{t.hint}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                        <Err id={`${id}-id-type-err`} msg={idErrors.type} />
+                      </fieldset>
+
+                      {/* Photos */}
+                      {idType && (
+                        <div className={`grid gap-5 ${ID_TYPES.find((t) => t.value === idType)?.needsBack ? "sm:grid-cols-2" : ""}`}>
+                          <IdFileInput
+                            id={`${id}-id-front`}
+                            label={idType === "passport" ? "Passport photo page" : "Front"}
+                            file={idFront}
+                            onChange={(f) => { setIdFront(f); setIdErrors((x) => ({ ...x, front: undefined })); }}
+                            error={idErrors.front}
+                          />
+                          {ID_TYPES.find((t) => t.value === idType)?.needsBack && (
+                            <IdFileInput
+                              id={`${id}-id-back`}
+                              label="Back"
+                              file={idBack}
+                              onChange={(f) => { setIdBack(f); setIdErrors((x) => ({ ...x, back: undefined })); }}
+                              error={idErrors.back}
+                            />
+                          )}
+                        </div>
+                      )}
+
+                      {/* Photo tips */}
+                      <ul className="grid gap-2 rounded-card bg-stone-50 p-4 text-[13px] text-ink-subtle sm:grid-cols-3">
+                        {["All four corners in the photo", "No glare or blur, text readable", "Not expired"].map((tip) => (
+                          <li key={tip} className="flex items-start gap-2">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" className="mt-px shrink-0 text-navy-700" aria-hidden="true"><path d="M5 12l5 5L20 7" /></svg>
+                            {tip}
+                          </li>
+                        ))}
+                      </ul>
+
+                      {/* Consent + privacy */}
+                      <div className="rounded-control bg-stone-50 p-4">
+                        <label className="check">
+                          <input
+                            id={`${id}-id-consent`}
+                            type="checkbox"
+                            checked={idConsent}
+                            aria-invalid={idErrors.consent ? true : undefined}
+                            aria-describedby={idErrors.consent ? `${id}-id-consent-err` : undefined}
+                            onChange={(e) => { setIdConsent(e.target.checked); setIdErrors((x) => ({ ...x, consent: undefined })); }}
+                          />
+                          <span>
+                            I agree to Aklass using this ID only to verify my booking. It's stored securely, seen only by the owner, and
+                            deleted {ID_RULES.deleteAfterDays} days after my stay. See our <Link to="/privacy">privacy policy</Link>.
+                          </span>
+                        </label>
+                        <Err id={`${id}-id-consent-err`} msg={idErrors.consent} />
+                      </div>
+
+                      <div className="alert" role="note">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M12 11v5M12 8h.01" /></svg>
+                        <div>
+                          <span className="alert__title">What happens next</span>
+                          After you pay, we check your ID, usually within a few hours, and email your confirmation.
+                          If the ID can't be verified, we'll contact you, and if we can't confirm the booking you get a full refund.
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col-reverse gap-3 border-t border-line pt-6 sm:flex-row sm:justify-between">
+                        <button type="button" className="btn btn-outline" onClick={() => goTo(2)} disabled={busy}>Back</button>
+                        <button type="submit" className="btn btn-primary sm:px-8" disabled={busy} aria-busy={busy}>
+                          {busy ? "Holding your dates…" : "Review booking"}
+                        </button>
+                      </div>
+                    </motion.form>
+                  )}
+
+                  {/* ===== STEP 4: REVIEW & PAY ===== */}
+                  {step === 4 && checkIn && checkOut && (
+                    <motion.section
+                      key="s4"
+                      aria-labelledby={`${id}-s4`}
+                      initial={{ opacity: 0, x: 16 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -16 }}
+                      transition={{ duration: 0.35, ease: EASE }}
+                      className="flex flex-col gap-6"
+                    >
+                      <h2 id={`${id}-s4`} className="text-h3">Check everything looks right</h2>
 
                       {holdExpired ? (
                         <div role="alert" className="alert" data-variant="warning">
@@ -456,7 +629,7 @@ export default function Book() {
                             <span className="alert__title">Your hold has expired</span>
                             We released your dates after {BOOKING.holdMinutes} minutes. If they're still free you can hold them again.
                             <div className="mt-3">
-                              <button type="button" className="btn btn-outline btn-sm" onClick={() => { setHold(null); goTo(2); }}>Hold my dates again</button>
+                              <button type="button" className="btn btn-outline btn-sm" onClick={() => { setHold(null); goTo(3); }}>Hold my dates again</button>
                             </div>
                           </div>
                         </div>
@@ -476,6 +649,7 @@ export default function Book() {
                           { k: "Guests", v: `${guests} ${guests === 1 ? "guest" : "guests"}`, edit: 1 as Step },
                           { k: "Lead guest", v: details.fullName, sub: `${details.email} · ${details.phoneCountry === "other" ? "" : details.phoneCountry + " "}${details.phone}`, edit: 2 as Step },
                           { k: "Arrival", v: details.arrivalTime, edit: 2 as Step },
+                          { k: "Photo ID", v: ID_TYPES.find((t) => t.value === idType)?.label ?? "", sub: "Uploaded · checked after payment", edit: 3 as Step },
                         ].map((row) => (
                           <div key={row.k} className="grid grid-cols-[110px_minmax(0,1fr)_auto] items-start gap-3 p-4 text-small sm:grid-cols-[140px_minmax(0,1fr)_auto]">
                             <dt className="text-ink-subtle">{row.k}</dt>
@@ -504,13 +678,13 @@ export default function Book() {
                       <div className="flex flex-col gap-3 border-t border-line pt-6">
                         <button type="button" className="btn btn-cta btn-lg btn-block" onClick={pay} disabled={busy || holdExpired}>
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4" /></svg>
-                          {busy ? "Taking you to Stripe…" : `Pay ${quote ? formatGBP(quote.total) : ""} securely with Stripe`}
+                          {busy ? "Taking you to SumUp…" : `Pay ${quote ? formatGBP(quote.total) : ""} securely with SumUp`}
                         </button>
                         <p className="text-center text-[13px] text-ink-subtle">
-                          You'll be taken to Stripe's secure checkout. We never see or store your card details.
+                          You'll be taken to SumUp's secure checkout. We never see or store your card details.
                           {hold && <> Booking reference <span className="ref">{hold.bookingRef}</span>.</>}
                         </p>
-                        <button type="button" className="btn btn-ghost self-center" onClick={() => goTo(2)}>Back</button>
+                        <button type="button" className="btn btn-ghost self-center" onClick={() => { setHold(null); goTo(3); }}>Back</button>
                       </div>
                     </motion.section>
                   )}
