@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import LegalPage, { type LegalSection } from "../components/legalpage";
 
 const COMPANY = "Aklass Dynamic Services";
-const EMAIL = "[EMAIL ADDRESS]";
+const EMAIL = "aklassdynamic@gmail.com";
 
 const sections: LegalSection[] = [
   {

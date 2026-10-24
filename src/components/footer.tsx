@@ -9,7 +9,7 @@ const LOGO_SRC = logo;
 
 /* Fill in before going live */
 const CONTACT = {
-    email: "[EMAIL ADDRESS]",
+    email: "aklassdynamic@gmail.com",
 };
 
 /* Social links — leave `url` empty ("") to hide a platform */

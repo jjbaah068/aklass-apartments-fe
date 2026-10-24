@@ -4,7 +4,7 @@ import { EASE, fadeUp, stagger } from "./reveal";
 import contactImg from "../assets/images/contacthero.webp";
 
 /* Fill in before going live */
-const EMAIL = "[EMAIL ADDRESS]";
+const EMAIL = "aklassdynamic@gmail.com";
 const WHATSAPP_URL = "https://wa.me/447947377995";
 const INSTAGRAM_URL = "https://www.instagram.com/aklassluxurystay";
 
