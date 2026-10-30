@@ -13,7 +13,6 @@ import {
   BookingError,
   ID_RULES,
   ID_TYPES,
-  IS_DEMO,
   addDays,
   createHold,
   formatDateUK,
