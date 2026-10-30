@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { EASE } from "./reveal";
 import { formatDateUK, formatGBP, type Quote } from "../lib/booking";
+import { WAKE_UP_MESSAGE, useSlow } from "../lib/hooks";
 import summaryImg from "../assets/images/livingroom3.webp";
 
 type Props = {
@@ -9,6 +10,7 @@ type Props = {
   guests: number;
   quote: Quote | null;
   quoteLoading: boolean;
+  quoteError?: string | null;
   holdSecondsLeft?: number | null;
 };
 
@@ -17,7 +19,32 @@ function mmss(s: number) {
   return `${m}:${String(s % 60).padStart(2, "0")}`;
 }
 
-export default function StaySummary({ checkIn, checkOut, guests, quote, quoteLoading, holdSecondsLeft }: Props) {
+/**
+ * The price lines, exactly as the server's quote gives them:
+ * "£160 × 7 nights", each discount as "−£x", the cleaning fee, then the total.
+ */
+export function QuoteBreakdown({ quote, totalLabel = "Total (GBP)" }: { quote: Quote; totalLabel?: string }) {
+  return (
+    <>
+      <div className="quote__row">
+        <span>{formatGBP(quote.nightlyRate)} × {quote.nights} {quote.nights === 1 ? "night" : "nights"}</span>
+        <span>{formatGBP(quote.accommodationBeforeDiscounts)}</span>
+      </div>
+      {quote.discounts.map((d) => (
+        <div key={`${d.type}-${d.label}`} className="quote__row text-success-ink">
+          <span>{d.label}</span>
+          <span>−{formatGBP(d.amount)}</span>
+        </div>
+      ))}
+      <div className="quote__row"><span>Cleaning fee</span><span>{formatGBP(quote.cleaningFee)}</span></div>
+      <div className="quote__divider" />
+      <div className="quote__total"><span>{totalLabel}</span><span>{formatGBP(quote.total)}</span></div>
+    </>
+  );
+}
+
+export default function StaySummary({ checkIn, checkOut, guests, quote, quoteLoading, quoteError, holdSecondsLeft }: Props) {
+  const slow = useSlow(quoteLoading);
   return (
     <div className="card-overlay overflow-hidden">
       <img src={summaryImg} alt="" className="aspect-[16/9] w-full object-cover" />
@@ -27,7 +54,7 @@ export default function StaySummary({ checkIn, checkOut, guests, quote, quoteLoa
           <p className="mt-1 font-display text-[24px] font-semibold leading-tight text-navy-900">
             Aklass Luxury Stay entire home
           </p>
-          <p className="text-[13px] text-ink-subtle">Bushbury, Wolverhampton WV10</p>
+          <p className="text-[13px] text-ink-subtle">Wolverhampton WV10</p>
         </div>
 
         <dl className="grid grid-cols-2 gap-3 border-y border-line py-4 text-small">
@@ -53,17 +80,14 @@ export default function StaySummary({ checkIn, checkOut, guests, quote, quoteLoa
               <div className="skeleton h-4 w-3/4" />
               <div className="skeleton h-4 w-1/2" />
               <div className="skeleton h-5 w-2/3" />
+              {slow && <p className="text-[13px] text-ink-subtle">{WAKE_UP_MESSAGE}</p>}
             </div>
           ) : quote ? (
             <div className="quote">
-              <div className="quote__row">
-                <span>{formatGBP(quote.nightlyRate)} × {quote.nights} {quote.nights === 1 ? "night" : "nights"}</span>
-                <span>{formatGBP(quote.accommodation)}</span>
-              </div>
-              <div className="quote__row"><span>Cleaning fee</span><span>{formatGBP(quote.cleaningFee)}</span></div>
-              <div className="quote__divider" />
-              <div className="quote__total"><span>Total (GBP)</span><span>{formatGBP(quote.total)}</span></div>
+              <QuoteBreakdown quote={quote} />
             </div>
+          ) : quoteError ? (
+            <p className="field-error">{quoteError}</p>
           ) : (
             <p className="text-small text-ink-subtle">Choose your dates to see the full price.</p>
           )}

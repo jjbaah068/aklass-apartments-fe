@@ -12,7 +12,7 @@ const sections: LegalSection[] = [
       <>
         <p>
           Aklass Luxury Stay is operated by <strong>{COMPANY}</strong> [company number / registered address, if applicable]
-          ("we", "us"). These terms apply when you ("you", the lead guest) book the property at Bushbury, Wolverhampton WV10
+          ("we", "us"). These terms apply when you ("you", the lead guest) book the property at Wolverhampton WV10
           directly through this website.
         </p>
         <p>By completing a booking you confirm you are at least 18 years old and agree to these terms on behalf of everyone in your group.</p>
@@ -28,7 +28,12 @@ const sections: LegalSection[] = [
           <li>You book the <strong>entire house</strong>. No other paying guests will stay during your booking.</li>
           <li>The minimum stay is <strong>[N] nights</strong> and the maximum is <strong>7 guests</strong>, including children.</li>
           <li>When you review your booking, your dates are <strong>held for 30 minutes</strong>. If payment isn't completed in that time, the dates are released.</li>
-          <li>Your booking is confirmed only when payment has been received and we've sent your confirmation email with a booking reference.</li>
+          <li>
+            The lead guest uploads a photo ID when booking. We use it only to check the name matches the booking. It's
+            stored encrypted and privately, location data is removed from the photo, and it's deleted 30 days after your
+            stay (or straight away if the booking isn't paid). See our <Link to="/privacy">privacy policy</Link>.
+          </li>
+          <li>Your booking is confirmed only when payment has been received, your ID has been checked, and we've sent your confirmation email with a booking reference. If we can't verify your ID, we'll contact you, and if we can't confirm the booking you get a full refund.</li>
         </ul>
       </>
     ),
@@ -43,7 +48,7 @@ const sections: LegalSection[] = [
           you pay is the total you'll be charged. [State whether prices include VAT, if applicable.]
         </p>
         <p>
-          Payment is taken in full at the time of booking through <strong>Stripe</strong>, our secure payment provider. We
+          Payment is taken in full at the time of booking through <strong>SumUp</strong>, our secure payment provider. We
           never see or store your full card details.
         </p>
       </>

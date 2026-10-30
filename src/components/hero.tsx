@@ -4,6 +4,8 @@ import { motion } from "motion/react";
 import { fadeUp, imageReveal, stagger, withDelay } from "./reveal";
 import StickyBooking from "./stickybooking";
 import hero1 from '../assets/images/herobg.webp'
+import { discountBadges, formatGBPShort } from "../lib/booking";
+import { usePublicSettings } from "../lib/hooks";
 
 
 /* Images*/
@@ -42,6 +44,12 @@ export default function Hero() {
   const [checkOut, setCheckOut] = useState("");
   const [guests, setGuests] = useState(2);
   const [error, setError] = useState("");
+
+  // "From £160 a night" + discount badges, from GET /settings/public (hidden until loaded)
+  const settings = usePublicSettings();
+  const badges = settings ? discountBadges(settings) : [];
+  const priceFrom = settings ? formatGBPShort(settings.nightlyRate) : null;
+  const maxGuests = settings?.maxGuests ?? MAX_GUESTS;
 
   const minCheckOut = checkIn ? addDays(checkIn, 1) : addDays(today, 1);
 
@@ -146,6 +154,21 @@ export default function Hero() {
             No shared spaces, no other guests. Just you.
           </motion.p>
 
+          {settings && (
+            <motion.div variants={fadeUp} className="mt-5">
+              <p className="text-body-lg text-ink-muted">
+                <span className="font-display text-[28px] font-semibold text-navy-900">From {priceFrom}</span> a night
+              </p>
+              {/* {badges.length > 0 && (
+                <ul className="mt-2 flex flex-wrap gap-2" aria-label="Discounts">
+                  {badges.map((b) => (
+                    <li key={b} className="chip chip-sm" data-status="confirmed">{b}</li>
+                  ))}
+                </ul>
+              )} */}
+            </motion.div>
+          )}
+
           <motion.ul
             variants={stagger(0.06)}
             className="mt-6 flex flex-wrap gap-x-5 gap-y-3"
@@ -217,7 +240,7 @@ export default function Hero() {
                 value={guests}
                 onChange={(e) => setGuests(Number(e.target.value))}
               >
-                {Array.from({ length: MAX_GUESTS }, (_, i) => i + 1).map((n) => (
+                {Array.from({ length: maxGuests }, (_, i) => i + 1).map((n) => (
                   <option key={n} value={n}>
                     {n} {n === 1 ? "guest" : "guests"}
                   </option>
@@ -255,7 +278,9 @@ export default function Hero() {
         checkIn={checkIn}
         checkOut={checkOut}
         guests={guests}
-        maxGuests={MAX_GUESTS}
+        maxGuests={maxGuests}
+        priceFrom={priceFrom}
+        badges={badges}
         onBook={goToBook}
       />
     </section>

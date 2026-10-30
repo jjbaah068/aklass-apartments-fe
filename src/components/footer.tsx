@@ -179,7 +179,7 @@ export default function Footer({ showCta = true }: { showCta?: boolean }) {
                             <svg viewBox="0 0 24 24" className="amenity-icon size-5" aria-hidden="true">
                                 <path d="M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12zM12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5" />
                             </svg>
-                            Bushbury, Wolverhampton WV10
+                            Wolverhampton WV10
                         </li>
                     </ul>
 

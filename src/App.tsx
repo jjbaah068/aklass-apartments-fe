@@ -9,6 +9,7 @@ import Privacy from "./pages/privacy";
 import Terms from "./pages/terms";
 import ReviewsPage from "./pages/reviews";
 import LeaveReview from "./pages/leavereview";
+import Confirmed from "./pages/confirmed";
 
 const aklassrouter = createBrowserRouter([
   {
@@ -20,6 +21,7 @@ const aklassrouter = createBrowserRouter([
       { path: "/reviews", element: <ReviewsPage /> },
       { path: "/reviews/new", element: <LeaveReview /> },
       { path: "/book", element: <Book /> },
+      { path: "/booking/confirmed", element: <Confirmed /> },
       { path: "/privacy", element: <Privacy /> },
       { path: "/terms", element: <Terms /> },
       { path: "*", element: <NotFound /> },

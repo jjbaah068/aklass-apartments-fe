@@ -5,8 +5,11 @@ import Overview from "../components/overview";
 import RoomExplorer from "../components/roomexplorer";
 import ReadyToStay from "../components/readytostay";
 import Footer from "../components/footer";
+import { discountBadges, formatGBPShort } from "../lib/booking";
+import { usePublicSettings } from "../lib/hooks";
 
 export default function Apartment() {
+  const settings = usePublicSettings();
   return (
     <>
       <Navbar />
@@ -27,12 +30,19 @@ export default function Apartment() {
             <div className="card-overlay sticky top-28 flex flex-col gap-4 p-6">
               <p className="eyebrow">Book direct</p>
               <p className="font-display text-[28px] font-semibold leading-tight text-navy-900">
-                The whole house, from £[X] a night
+                {settings ? `The whole house, from ${formatGBPShort(settings.nightlyRate)} a night` : "The whole house, booked direct"}
               </p>
+              {settings && discountBadges(settings).length > 0 && (
+                <ul className="flex flex-wrap gap-1.5" aria-label="Discounts">
+                  {discountBadges(settings).map((b) => (
+                    <li key={b} className="chip chip-sm" data-status="confirmed">{b}</li>
+                  ))}
+                </ul>
+              )}
               <ul className="flex flex-col gap-2 text-small text-ink-muted">
-                <li>Up to 7 guests · 4 bedrooms</li>
+                <li>Up to {settings?.maxGuests ?? 7} guests · 4 bedrooms</li>
                 <li>Check-in 3:00–7:00 PM</li>
-                <li>Pay securely with ...</li>
+                <li>Pay securely with SumUp</li>
               </ul>
               <Link to="/book" className="btn btn-primary btn-block">
                 Check availability

@@ -40,7 +40,8 @@ export type Review = {
 export type ReviewSummary = {
   count: number;
   average: number; 
-  distribution: Record<1 | 2 | 3 | 4 | 5, number>; 
+  /** Keys are "1".."5" in the JSON; distribution[5] and distribution["5"] read the same value. */
+  distribution: Record<1 | 2 | 3 | 4 | 5, number>;
   categories: Record<CategoryKey, number>;
 };
 
@@ -161,13 +162,19 @@ export type NewReview = {
   website: string; 
 };
 
-export type ReviewErrorCode = "NOT_FOUND" | "NOT_FINISHED" | "ALREADY_REVIEWED" | "LINK_EXPIRED" | "NETWORK" | "UNKNOWN";
+export type ReviewErrorCode =
+  | "NOT_FOUND" | "NOT_FINISHED" | "ALREADY_REVIEWED" | "LINK_EXPIRED" | "INVALID"
+  | "TOO_MANY_REQUESTS" | "SERVER_ERROR" | "BAD_REQUEST"
+  | "NETWORK" | "UNKNOWN";
 
 export class ReviewError extends Error {
   code: ReviewErrorCode;
-  constructor(code: ReviewErrorCode, message: string) {
+  /** Form errors keyed by field path, e.g. { "text": "…", "categories.value": "…" } (code INVALID). */
+  fields?: Record<string, string>;
+  constructor(code: ReviewErrorCode, message: string, fields?: Record<string, string>) {
     super(message);
     this.code = code;
+    this.fields = fields;
   }
 }
 
@@ -183,7 +190,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     throw new ReviewError("NETWORK", "We couldn't connect. Check your internet connection and try again.");
   }
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ReviewError(data.code ?? "UNKNOWN", data.message ?? "Something went wrong. Please try again.");
+  if (!res.ok) throw new ReviewError(data.code ?? "UNKNOWN", data.message ?? "Something went wrong. Please try again.", data.fields);
   return data as T;
 }
 
@@ -201,6 +208,7 @@ export async function verifyBookingForReview(bookingRef: string, email: string):
     await wait(600);
     if (ref === "AKL-FUTURE") throw new ReviewError("NOT_FINISHED", "You can leave a review once your stay has finished.");
     if (ref === "AKL-DONE") throw new ReviewError("ALREADY_REVIEWED", "A review has already been left for this booking. Thank you!");
+    if (ref === "AKL-LIMIT") throw new ReviewError("TOO_MANY_REQUESTS", "Too many requests. Please try again later.");
     if (!/^(AKL|ALS)-[A-Z0-9]{3,}$/.test(ref)) throw new ReviewError("NOT_FOUND", "We couldn't find a booking with that reference and email.");
     return demoInvite(ref, email);
   }
@@ -225,5 +233,7 @@ export async function submitReview(token: string, review: NewReview): Promise<vo
     await wait(800);
     return;
   }
-  await post<unknown>("/reviews", { token, ...review });
+  // tripType is optional and must be one of TRIP_TYPES, so leave it out when not chosen
+  const { tripType, ...rest } = review;
+  await post<unknown>("/reviews", { token, ...rest, ...(tripType ? { tripType } : {}) });
 }
