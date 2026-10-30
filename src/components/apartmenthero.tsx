@@ -62,7 +62,7 @@ export default function ApartmentHero({ onOpenPhoto }: Props) {
               The Apartment
             </motion.h1>
             <motion.p variants={fadeUp} className="mt-2 text-body-lg text-ink-muted">
-              Entire home · Bushbury, Wolverhampton WV10
+              Entire home · Wolverhampton WV10
             </motion.p>
           </div>
 

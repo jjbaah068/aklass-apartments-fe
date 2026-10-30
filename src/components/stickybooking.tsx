@@ -18,6 +18,10 @@ type Props = {
   checkOut: string;
   guests: number;
   maxGuests: number;
+  /** e.g. "£160", from GET /settings/public. null = not loaded, so hidden. */
+  priceFrom?: string | null;
+  /** Discount badges, e.g. "5% off Mon–Thu nights" (switched-off discounts already left out). */
+  badges?: string[];
   onBook: () => void;
 };
 
@@ -26,7 +30,7 @@ const short = (iso: string) => {
   return new Date(y, m - 1, d).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 };
 
-export default function StickyBooking({ visible, checkIn, checkOut, guests, maxGuests, onBook }: Props) {
+export default function StickyBooking({ visible, checkIn, checkOut, guests, maxGuests, priceFrom, badges = [], onBook }: Props) {
   const reduce = useReducedMotion();
   const hasDates = !!checkIn && !!checkOut;
 
@@ -51,6 +55,18 @@ export default function StickyBooking({ visible, checkIn, checkOut, guests, maxG
             <p className="text-[13px] text-ink-subtle">
               {hasDates ? `${guests} ${guests === 1 ? "guest" : "guests"} · entire house` : `Entire house · up to ${maxGuests} guests`}
             </p>
+            {priceFrom && (
+              <p className="mt-2 text-small text-ink-muted">
+                <span className="font-semibold text-navy-900">From {priceFrom}</span> a night
+              </p>
+            )}
+            {badges.length > 0 && (
+              <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Discounts">
+                {badges.map((b) => (
+                  <li key={b} className="chip chip-sm" data-status="confirmed">{b}</li>
+                ))}
+              </ul>
+            )}
             <button type="button" onClick={onBook} className="btn btn-cta btn-block mt-3">
               Check availability
             </button>

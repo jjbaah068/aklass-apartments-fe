@@ -22,7 +22,8 @@ const sections: LegalSection[] = [
       <ul>
         <li><strong>Booking details:</strong> your name, email address, phone number, dates, number of guests, expected arrival time and (if you tell us) the purpose of your stay.</li>
         <li><strong>Messages:</strong> anything you send us through the contact form, email or WhatsApp.</li>
-        <li><strong>Payment information:</strong> handled by Stripe. We receive confirmation that you've paid and limited details (such as the last four digits of your card), never your full card number.</li>
+        <li><strong>Photo ID:</strong> a photo of the lead guest's passport, driving licence or national ID card, uploaded when you book.</li>
+        <li><strong>Payment information:</strong> handled by SumUp. We receive confirmation that you've paid and limited details (such as the last four digits of your card), never your full card number.</li>
         <li><strong>CCTV footage:</strong> from external cameras covering the outside of the property only.</li>
         <li><strong>Website data:</strong> basic technical information such as your browser and device, used to keep the site working and secure.</li>
       </ul>
@@ -37,6 +38,7 @@ const sections: LegalSection[] = [
         <ul>
           <li>take and manage your booking, and send your confirmation and arrival details (<strong>to perform our contract with you</strong>)</li>
           <li>reply to your questions (<strong>our legitimate interest</strong> in helping you, or steps before a contract)</li>
+          <li>check that the name on your photo ID matches the booking, and for nothing else (<strong>our legitimate interest</strong> in preventing fraud and keeping the property safe, and with your consent when you upload it)</li>
           <li>keep the property and guests safe, including CCTV (<strong>our legitimate interest</strong> in security)</li>
           <li>keep financial records we're required to keep (<strong>legal obligation</strong>)</li>
         </ul>
@@ -51,7 +53,7 @@ const sections: LegalSection[] = [
       <>
         <p>Only with trusted providers who help us run the business, and only what they need:</p>
         <ul>
-          <li><strong>Stripe</strong>: to process payments</li>
+          <li><strong>SumUp</strong>: to process payments</li>
           <li>[Website hosting provider], to run this website</li>
           <li>[Email provider], to send booking emails</li>
           <li>Cleaning or maintenance staff, only where they need to know about your stay (for example, arrival times)</li>
@@ -66,6 +68,10 @@ const sections: LegalSection[] = [
     body: (
       <ul>
         <li>Booking and payment records: <strong>6 years</strong> after your stay, for tax and accounting.</li>
+        <li>
+          Photo ID: deleted <strong>30 days after your stay</strong>, or straight away if the booking isn't paid. Until then it's
+          stored encrypted and privately, and only the owner can see it.
+        </li>
         <li>Contact messages that didn't lead to a booking: [12 months].</li>
         <li>CCTV footage: [30 days], unless needed to investigate an incident.</li>
       </ul>
@@ -93,8 +99,9 @@ const sections: LegalSection[] = [
     title: "Keeping it safe",
     body: (
       <p>
-        Your information is stored with providers that use industry-standard security, payments go through Stripe's secure
-        checkout, and only people who need it can access booking details. Some providers may store data outside the UK; where
+        Your information is stored with providers that use industry-standard security, payments go through SumUp's secure
+        checkout, and only people who need it can access booking details. When you upload your photo ID, we remove hidden
+        data from the image (such as GPS location), then encrypt it and store it privately. It's never shown on the website. Some providers may store data outside the UK; where
         they do, they use approved safeguards.
       </p>
     ),

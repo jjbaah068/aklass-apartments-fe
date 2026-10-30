@@ -5,8 +5,9 @@ import Navbar from "../components/navbar";
 import Footer from "../components/footer";
 import { EASE } from "../components/reveal";
 import DateRangeCalendar from "../components/daterangecalendar";
-import StaySummary from "../components/staysummary";
+import StaySummary, { QuoteBreakdown } from "../components/staysummary";
 import IdFileInput from "../components/idfileinput";
+import { WAKE_UP_MESSAGE, usePublicSettings, useSlow } from "../lib/hooks";
 import {
   BOOKING,
   BookingError,
@@ -19,8 +20,10 @@ import {
   formatGBP,
   getBlockedNights,
   getQuote,
+  formatTime,
   nightsBetween,
   rangeIsFree,
+  startCheckout,
   todayISO,
   uploadId,
   type GuestDetails,
@@ -96,6 +99,13 @@ export default function Book() {
   const [availabilityLoading, setAvailabilityLoading] = useState(true);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+
+  // Stay rules from the server (falls back to the built-in numbers until it loads)
+  const settings = usePublicSettings();
+  const minNights = settings?.minNights ?? BOOKING.minNights;
+  const maxGuests = settings?.maxGuests ?? BOOKING.maxGuests;
+  const checkInFrom = formatTime(settings?.checkInFrom ?? "15:00");
 
   const [details, setDetails] = useState<GuestDetails>(EMPTY_DETAILS);
   const [agree, setAgree] = useState(false);
@@ -112,7 +122,10 @@ export default function Book() {
   const lastHoldRef = useRef<string | null>(null); // the most recent hold, so the server can release it if we re-hold
   const [holdLeft, setHoldLeft] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  const [busyLabel, setBusyLabel] = useState("");
   const [flowError, setFlowError] = useState<{ title: string; body: string } | null>(null);
+  const availabilitySlow = useSlow(availabilityLoading);
+  const busySlow = useSlow(busy);
 
   /* ---------- Load availability ---------- */
   async function loadAvailability() {
@@ -134,7 +147,7 @@ export default function Book() {
     const ok =
       checkIn >= todayISO() &&
       checkOut > checkIn &&
-      nightsBetween(checkIn, checkOut) >= BOOKING.minNights &&
+      nightsBetween(checkIn, checkOut) >= minNights &&
       rangeIsFree(checkIn, checkOut, blocked);
     if (!ok) {
       setCheckIn(null);
@@ -143,19 +156,26 @@ export default function Book() {
     }
   }, [availabilityLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* ---------- Live quote ---------- */
+  /* ---------- Live quote (always the server's price; debounced while guests/dates change) ---------- */
   useEffect(() => {
-    if (!checkIn || !checkOut) { setQuote(null); return; }
+    if (!checkIn || !checkOut) { setQuote(null); setQuoteError(null); setQuoteLoading(false); return; }
     let cancelled = false;
     setQuoteLoading(true);
-    getQuote(checkIn, checkOut, guests)
-      .then((q) => { if (!cancelled) setQuote(q); })
-      .catch(() => { if (!cancelled) setQuote(null); })
-      .finally(() => { if (!cancelled) setQuoteLoading(false); });
+    setQuoteError(null);
+    const t = setTimeout(() => {
+      getQuote(checkIn, checkOut, guests)
+        .then((q) => { if (!cancelled) setQuote(q); })
+        .catch((e) => {
+          if (cancelled) return;
+          setQuote(null);
+          setQuoteError(e instanceof BookingError ? e.message : "We couldn't get a price. Please try again.");
+        })
+        .finally(() => { if (!cancelled) setQuoteLoading(false); });
+    }, 300);
     // Keep the URL in sync so the page can be refreshed or shared
     setParams({ checkIn, checkOut, guests: String(guests) }, { replace: true });
-    return () => { cancelled = true; };
-  }, [checkIn, checkOut, guests]); 
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [checkIn, checkOut, guests]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ---------- Hold countdown ---------- */
   useEffect(() => {
@@ -167,6 +187,25 @@ export default function Book() {
   }, [hold]);
 
   const holdExpired = hold != null && holdLeft === 0;
+
+  /* When the 30 minutes run out, send the guest back to step 1 (their old ref is still
+     sent as previousRef next time, so nothing blocks their own dates). */
+  useEffect(() => {
+    if (!holdExpired) return;
+    backToStart(
+      "Your hold has expired",
+      `We released your dates after ${BOOKING.holdMinutes} minutes and nothing has been charged. If they're still free, you can continue with them again.`,
+    );
+  }, [holdExpired]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Drop the hold and go back to dates, refreshing availability. */
+  function backToStart(title: string, body: string) {
+    setHold(null);
+    setStep(1);
+    loadAvailability();
+    setFlowError({ title, body });
+    topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 
   function goTo(s: Step) {
     setFlowError(null);
@@ -207,11 +246,14 @@ export default function Book() {
     try {
       // Reuse the current hold if the upload failed last time; otherwise hold the dates now
       // (and tell the server to release any earlier hold, so it doesn't block our own dates).
-      const h = hold && !holdExpired
-        ? hold
-        : await createHold({ checkIn, checkOut, guests, details, idType, agreedToTerms: true, agreedToIdCheck: true, previousRef: lastHoldRef.current ?? undefined });
-      lastHoldRef.current = h.bookingRef;
-      setHold(h);
+      let h = hold && !holdExpired ? hold : null;
+      if (!h) {
+        setBusyLabel("Holding your dates…");
+        h = await createHold({ checkIn, checkOut, guests, details, idType, agreedToTerms: true, agreedToIdCheck: true, previousRef: lastHoldRef.current ?? undefined });
+        lastHoldRef.current = h.bookingRef;
+        setHold(h);
+      }
+      setBusyLabel("Uploading your ID securely…");
       await uploadId(h.bookingRef, { type: idType, front: idFront, back: needsBack ? idBack : null, consent: true });
       goTo(4);
     } catch (err) {
@@ -221,29 +263,102 @@ export default function Book() {
     }
   }
 
+  /** Server field paths ("details.email") → the field names on step 2. */
+  const DETAIL_FIELDS: Record<string, keyof DetailErrors> = {
+    "details.fullName": "fullName",
+    "details.email": "email",
+    "details.phone": "phone",
+    "details.phoneCountry": "phone",
+    "details.purpose": "purpose",
+    "details.arrivalTime": "arrivalTime",
+    agreedToTerms: "agree",
+  };
+
   function handleBookingError(err: unknown) {
-    if (err instanceof BookingError && err.code === "DATES_TAKEN") {
-      setCheckIn(null);
-      setCheckOut(null);
-      setHold(null);
-      loadAvailability();
-      setStep(1);
-      setFlowError({ title: "Those dates were just taken", body: "Another guest booked some of those nights moments ago. Nothing has been charged — please choose new dates." });
-      return;
+    const code = err instanceof BookingError ? err.code : "UNKNOWN";
+    const message = err instanceof Error ? err.message : "Please try again.";
+    const ref = hold?.bookingRef ?? lastHoldRef.current;
+
+    switch (code) {
+      case "DATES_TAKEN":
+        setCheckIn(null);
+        setCheckOut(null);
+        backToStart("Those dates were just taken", "Another guest booked some of those nights moments ago. Nothing has been charged. Please choose new dates.");
+        return;
+      case "HOLD_EXPIRED":
+        backToStart("Your hold has expired", `${message} Nothing has been charged. If your dates are still free, you can continue with them again.`);
+        return;
+      case "NOT_FOUND":
+        backToStart("We couldn't find your hold", `${message} Nothing has been charged. Please continue from your dates again.`);
+        return;
+      case "INVALID_DATES":
+      case "PAST_DATE":
+      case "MIN_STAY":
+      case "MAX_STAY":
+      case "MAX_GUESTS":
+        backToStart("Please check your dates and guests", message);
+        return;
+      case "INVALID": {
+        const fields = err instanceof BookingError ? err.fields ?? {} : {};
+        const found: DetailErrors = {};
+        for (const [path, msg] of Object.entries(fields)) {
+          const key = DETAIL_FIELDS[path];
+          if (key) found[key] = msg;
+        }
+        if (Object.keys(found).length) {
+          setErrors(found);
+          goTo(2);
+          setFlowError({ title: "Please check your details", body: message });
+          return;
+        }
+        setFlowError({ title: "Please check your booking", body: message });
+        return;
+      }
+      case "ID_REQUIRED":
+        goTo(3);
+        setFlowError({ title: "Please upload your ID", body: message });
+        return;
+      case "ID_INVALID":
+        setFlowError({ title: "We couldn't use that ID file", body: message });
+        return;
+      case "ALREADY_PAID":
+        if (ref) navigate(`/booking/confirmed?ref=${encodeURIComponent(ref)}`);
+        return;
+      case "TOO_MANY_REQUESTS":
+        setFlowError({ title: "Too many attempts", body: message });
+        return;
+      case "PAYMENT_PROVIDER_ERROR":
+        setFlowError({ title: "SumUp didn't respond", body: message });
+        return;
+      case "PAYMENTS_NOT_SET_UP":
+        setFlowError({ title: "Card payments aren't available right now", body: message });
+        return;
+      case "NETWORK":
+        setFlowError({ title: "We couldn't connect", body: message });
+        return;
+      default:
+        setFlowError({ title: "Something went wrong", body: message });
     }
-    setFlowError({
-      title: err instanceof BookingError && err.code === "NETWORK" ? "We couldn't connect" : "Something went wrong",
-      body: err instanceof Error ? err.message : "Please try again.",
-    });
   }
 
-  /* Step 4: pay  */
-  function pay() {
+  /* ---------- Step 4: pay (SumUp's hosted page) ---------- */
+  async function pay() {
     if (!hold || holdExpired) return;
     setBusy(true);
-    if (hold.checkoutUrl.startsWith("http")) window.location.assign(hold.checkoutUrl); // SumUp hosted checkout
-    else navigate(hold.checkoutUrl); // demo mode
+    setBusyLabel("Taking you to SumUp…");
+    setFlowError(null);
+    try {
+      const { checkoutUrl } = await startCheckout(hold.bookingRef);
+      if (checkoutUrl.startsWith("/")) navigate(checkoutUrl); // demo mode
+      else window.location.assign(checkoutUrl); // SumUp hosted checkout (stays "busy" while the page leaves)
+    } catch (err) {
+      handleBookingError(err);
+      setBusy(false);
+    }
   }
+
+  /** The hold's quote is the final price; before that, the live quote. */
+  const shownQuote = hold?.quote ?? quote;
 
   const nights = checkIn && checkOut ? nightsBetween(checkIn, checkOut) : 0;
   const canContinue = !!checkIn && !!checkOut && !!quote && !quoteLoading;
@@ -254,12 +369,13 @@ export default function Book() {
         checkIn={checkIn}
         checkOut={checkOut}
         guests={guests}
-        quote={quote}
-        quoteLoading={quoteLoading}
-        holdSecondsLeft={step === 4 ? holdLeft : null}
+        quote={shownQuote}
+        quoteLoading={quoteLoading && !hold}
+        quoteError={quoteError}
+        holdSecondsLeft={step >= 3 ? holdLeft : null}
       />
     ),
-    [checkIn, checkOut, guests, quote, quoteLoading, step, holdLeft],
+    [checkIn, checkOut, guests, shownQuote, quoteLoading, quoteError, hold, step, holdLeft],
   );
 
   const field = (k: keyof GuestDetails | "agree") => ({
@@ -344,13 +460,14 @@ export default function Book() {
                             <div className="grid grid-cols-7 gap-1">
                               {Array.from({ length: 35 }, (_, i) => <div key={i} className="skeleton h-11" />)}
                             </div>
+                            {availabilitySlow && <p className="text-small text-ink-subtle" role="status">{WAKE_UP_MESSAGE}</p>}
                           </div>
                         ) : (
                           <DateRangeCalendar
                             checkIn={checkIn}
                             checkOut={checkOut}
                             blocked={blocked}
-                            minNights={BOOKING.minNights}
+                            minNights={minNights}
                             onChange={changeDates}
                           />
                         )}
@@ -375,8 +492,8 @@ export default function Book() {
                       <div className="mt-6 flex items-center justify-between gap-4 rounded-card border border-line p-4">
                         <div>
                           <p className="font-semibold text-navy-900">Guests</p>
-                          <p className={`text-[13px] ${guests >= BOOKING.maxGuests ? "font-semibold text-gold-700" : "text-ink-subtle"}`}>
-                            {guests >= BOOKING.maxGuests ? `Maximum ${BOOKING.maxGuests} guests reached` : "Adults and children"}
+                          <p className={`text-[13px] ${guests >= maxGuests ? "font-semibold text-gold-700" : "text-ink-subtle"}`}>
+                            {guests >= maxGuests ? `Maximum ${maxGuests} guests reached` : "Adults and children"}
                           </p>
                         </div>
                         <div className="stepper">
@@ -384,13 +501,13 @@ export default function Book() {
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M5 12h14" /></svg>
                           </button>
                           <output className="stepper-value" aria-live="polite">{guests}</output>
-                          <button type="button" className="stepper-btn" aria-label="Add a guest" disabled={guests >= BOOKING.maxGuests} onClick={() => setGuests((g) => g + 1)}>
+                          <button type="button" className="stepper-btn" aria-label="Add a guest" disabled={guests >= maxGuests} onClick={() => setGuests((g) => Math.min(maxGuests, g + 1))}>
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
                           </button>
                         </div>
                       </div>
                       <p className="mt-2 text-[13px] text-ink-subtle">
-                        More than {BOOKING.maxGuests}? <Link to="/contact">Contact us</Link> before booking.
+                        More than {maxGuests}? <Link to="/contact">Contact us</Link> before booking.
                       </p>
 
                       {/* Mobile summary */}
@@ -584,8 +701,9 @@ export default function Book() {
                             onChange={(e) => { setIdConsent(e.target.checked); setIdErrors((x) => ({ ...x, consent: undefined })); }}
                           />
                           <span>
-                            I agree to Aklass using this ID only to verify my booking. It's stored securely, seen only by the owner, and
-                            deleted {ID_RULES.deleteAfterDays} days after my stay. See our <Link to="/privacy">privacy policy</Link>.
+                            I agree to Aklass using this ID only to check the name matches my booking. It's stored encrypted and privately,
+                            location data is removed from the photo, only the owner can see it, and it's deleted {ID_RULES.deleteAfterDays} days
+                            after my stay (or straight away if the booking isn't paid). See our <Link to="/privacy">privacy policy</Link>.
                           </span>
                         </label>
                         <Err id={`${id}-id-consent-err`} msg={idErrors.consent} />
@@ -601,11 +719,13 @@ export default function Book() {
                       </div>
 
                       <div className="flex flex-col-reverse gap-3 border-t border-line pt-6 sm:flex-row sm:justify-between">
-                        <button type="button" className="btn btn-outline" onClick={() => goTo(2)} disabled={busy}>Back</button>
+                        {/* Going back drops the hold; the next hold sends it as previousRef so it's released */}
+                        <button type="button" className="btn btn-outline" onClick={() => { setHold(null); goTo(2); }} disabled={busy}>Back</button>
                         <button type="submit" className="btn btn-primary sm:px-8" disabled={busy} aria-busy={busy}>
-                          {busy ? "Holding your dates…" : "Review booking"}
+                          {busy ? busyLabel || "Holding your dates…" : "Review booking"}
                         </button>
                       </div>
+                      {busySlow && <p className="-mt-3 text-center text-[13px] text-ink-subtle" role="status">{WAKE_UP_MESSAGE}</p>}
                     </motion.form>
                   )}
 
@@ -622,30 +742,18 @@ export default function Book() {
                     >
                       <h2 id={`${id}-s4`} className="text-h3">Check everything looks right</h2>
 
-                      {holdExpired ? (
-                        <div role="alert" className="alert" data-variant="warning">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0" /></svg>
-                          <div>
-                            <span className="alert__title">Your hold has expired</span>
-                            We released your dates after {BOOKING.holdMinutes} minutes. If they're still free you can hold them again.
-                            <div className="mt-3">
-                              <button type="button" className="btn btn-outline btn-sm" onClick={() => { setHold(null); goTo(3); }}>Hold my dates again</button>
-                            </div>
-                          </div>
+                      {/* When the timer reaches 0 the guest is sent back to step 1 automatically */}
+                      <div className="alert" role="status">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M12 7v5l3 2" /></svg>
+                        <div>
+                          <span className="alert__title">Your dates are held for {BOOKING.holdMinutes} minutes</span>
+                          Complete payment before the timer runs out, or the dates will be released.
                         </div>
-                      ) : (
-                        <div className="alert" role="status">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18M12 7v5l3 2" /></svg>
-                          <div>
-                            <span className="alert__title">Your dates are held for {BOOKING.holdMinutes} minutes</span>
-                            Complete payment before the timer runs out, or the dates will be released.
-                          </div>
-                        </div>
-                      )}
+                      </div>
 
                       <dl className="divide-y divide-line rounded-card border border-line">
                         {[
-                          { k: "Stay", v: `${formatDateUK(checkIn)} – ${formatDateUK(checkOut)}`, sub: `${nights} nights · check-in from 3:00 PM`, edit: 1 as Step },
+                          { k: "Stay", v: `${formatDateUK(checkIn)} – ${formatDateUK(checkOut)}`, sub: `${nights} nights · check-in from ${checkInFrom}`, edit: 1 as Step },
                           { k: "Guests", v: `${guests} ${guests === 1 ? "guest" : "guests"}`, edit: 1 as Step },
                           { k: "Lead guest", v: details.fullName, sub: `${details.email} · ${details.phoneCountry === "other" ? "" : details.phoneCountry + " "}${details.phone}`, edit: 2 as Step },
                           { k: "Arrival", v: details.arrivalTime, edit: 2 as Step },
@@ -666,20 +774,19 @@ export default function Book() {
                         ))}
                       </dl>
 
-                      {quote && (
+                      {/* Final price = the server's quote from the hold */}
+                      {shownQuote && (
                         <div className="quote rounded-card bg-stone-50 p-4">
-                          <div className="quote__row"><span>{formatGBP(quote.nightlyRate)} × {quote.nights} nights</span><span>{formatGBP(quote.accommodation)}</span></div>
-                          <div className="quote__row"><span>Cleaning fee</span><span>{formatGBP(quote.cleaningFee)}</span></div>
-                          <div className="quote__divider" />
-                          <div className="quote__total"><span>Total to pay (GBP)</span><span>{formatGBP(quote.total)}</span></div>
+                          <QuoteBreakdown quote={shownQuote} totalLabel="Total to pay (GBP)" />
                         </div>
                       )}
 
                       <div className="flex flex-col gap-3 border-t border-line pt-6">
-                        <button type="button" className="btn btn-cta btn-lg btn-block" onClick={pay} disabled={busy || holdExpired}>
+                        <button type="button" className="btn btn-cta btn-lg btn-block" onClick={pay} disabled={busy || holdExpired} aria-busy={busy}>
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4" /></svg>
-                          {busy ? "Taking you to SumUp…" : `Pay ${quote ? formatGBP(quote.total) : ""} securely with SumUp`}
+                          {busy ? busyLabel || "Taking you to SumUp…" : `Pay ${shownQuote ? formatGBP(shownQuote.total) : ""} securely with SumUp`}
                         </button>
+                        {busySlow && <p className="text-center text-[13px] text-ink-subtle" role="status">{WAKE_UP_MESSAGE}</p>}
                         <p className="text-center text-[13px] text-ink-subtle">
                           You'll be taken to SumUp's secure checkout. We never see or store your card details.
                           {hold && <> Booking reference <span className="ref">{hold.bookingRef}</span>.</>}

@@ -117,17 +117,20 @@ export default function LeaveReview() {
       });
   }, [token]);
 
-  function explain(e: unknown) {
+  function explain(e: unknown, during: "verify" | "other" = "other") {
     const code = e instanceof ReviewError ? e.code : "UNKNOWN";
     const titles: Record<string, string> = {
       NOT_FOUND: "We couldn't find that booking",
       NOT_FINISHED: "Your stay hasn't finished yet",
       ALREADY_REVIEWED: "You've already left a review",
       LINK_EXPIRED: "This link has expired",
+      TOO_MANY_REQUESTS: "Too many tries",
+      INVALID: "Please check your review",
       NETWORK: "We couldn't connect",
     };
     const body =
       code === "LINK_EXPIRED" ? "Enter your booking reference and email below instead."
+      : code === "TOO_MANY_REQUESTS" && during === "verify" ? "Too many tries. Please wait 15 minutes."
       : e instanceof Error ? e.message : "Please try again.";
     return { title: titles[code] ?? "Something went wrong", body };
   }
@@ -150,7 +153,7 @@ export default function LeaveReview() {
       setPhase("form");
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
-      setProblem(explain(err));
+      setProblem(explain(err, "verify"));
     } finally {
       setBusy(false);
     }
@@ -180,6 +183,17 @@ export default function LeaveReview() {
       setPhase("done");
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
+      // Show the server's per-field messages next to the right fields
+      if (err instanceof ReviewError && err.code === "INVALID" && err.fields) {
+        const fromServer: FormErrors = {};
+        for (const [path, msg] of Object.entries(err.fields)) {
+          const key = path === "confirmedGenuine" ? "genuine" : path.replace(/^categories\./, "");
+          if (key === "rating" || key === "text" || key === "displayName" || key === "genuine" || CATEGORIES.some((c) => c.key === key)) {
+            fromServer[key as keyof FormErrors] = msg;
+          }
+        }
+        setErrors(fromServer);
+      }
       setProblem(explain(err));
     } finally {
       setBusy(false);
