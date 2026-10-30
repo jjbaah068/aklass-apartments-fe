@@ -1,7 +1,7 @@
 
 export const BOOKING = {
   maxGuests: 7,
-  minNights: 2,
+  minNights: 1,
   holdMinutes: 30,
 };
 
@@ -78,7 +78,7 @@ export type PublicSettings = {
 
 /** Demo numbers. They match the live backend's defaults so demo prices look the same. */
 export const DEMO_SETTINGS: PublicSettings = {
-  minNights: 2,
+  minNights: 1,
   maxNights: 60,
   maxGuests: 7,
   checkInFrom: "15:00",
@@ -315,7 +315,7 @@ export function demoQuote(checkIn: string, checkOut: string, guests: number, s: 
   const nights = isDay(checkIn) && isDay(checkOut) ? nightsBetween(checkIn, checkOut) : 0;
   if (nights <= 0) throw new BookingError("INVALID_DATES", "Choose a check-out date after your check-in date.", 400);
   if (checkIn < todayISO()) throw new BookingError("PAST_DATE", "Check-in can't be in the past.", 400);
-  if (nights < s.minNights) throw new BookingError("MIN_STAY", `The minimum stay is ${s.minNights} nights.`, 400);
+  if (nights < s.minNights) throw new BookingError("MIN_STAY", `The minimum stay is ${s.minNights} night${s.minNights === 1 ? "" : "s"}.`, 400);
   if (nights > s.maxNights) throw new BookingError("MAX_STAY", `The maximum stay is ${s.maxNights} nights.`, 400);
   if (guests < 1 || guests > s.maxGuests) throw new BookingError("MAX_GUESTS", `The apartment sleeps up to ${s.maxGuests} guests.`, 400);
 

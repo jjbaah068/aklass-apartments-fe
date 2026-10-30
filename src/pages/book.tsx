@@ -119,7 +119,7 @@ export default function Book() {
   const [idErrors, setIdErrors] = useState<IdErrors>({});
 
   const [hold, setHold] = useState<Hold | null>(null);
-  const lastHoldRef = useRef<string | null>(null); // the most recent hold, so the server can release it if we re-hold
+  const lastHoldRef = useRef<string | null>(null); 
   const [holdLeft, setHoldLeft] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState("");
@@ -154,7 +154,7 @@ export default function Book() {
       setCheckOut(null);
       setFlowError({ title: "Those dates aren't available", body: "Some of the nights you picked are booked or below the minimum stay. Please choose new dates." });
     }
-  }, [availabilityLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [availabilityLoading]); 
 
   /* ---------- Live quote (always the server's price; debounced while guests/dates change) ---------- */
   useEffect(() => {
@@ -175,8 +175,7 @@ export default function Book() {
     // Keep the URL in sync so the page can be refreshed or shared
     setParams({ checkIn, checkOut, guests: String(guests) }, { replace: true });
     return () => { cancelled = true; clearTimeout(t); };
-  }, [checkIn, checkOut, guests]); // eslint-disable-line react-hooks/exhaustive-deps
-
+  }, [checkIn, checkOut, guests]);
   /* ---------- Hold countdown ---------- */
   useEffect(() => {
     if (!hold) { setHoldLeft(null); return; }
@@ -188,17 +187,15 @@ export default function Book() {
 
   const holdExpired = hold != null && holdLeft === 0;
 
-  /* When the 30 minutes run out, send the guest back to step 1 (their old ref is still
-     sent as previousRef next time, so nothing blocks their own dates). */
+
   useEffect(() => {
     if (!holdExpired) return;
     backToStart(
       "Your hold has expired",
       `We released your dates after ${BOOKING.holdMinutes} minutes and nothing has been charged. If they're still free, you can continue with them again.`,
     );
-  }, [holdExpired]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [holdExpired]); 
 
-  /** Drop the hold and go back to dates, refreshing availability. */
   function backToStart(title: string, body: string) {
     setHold(null);
     setStep(1);
@@ -244,8 +241,7 @@ export default function Book() {
     setBusy(true);
     setFlowError(null);
     try {
-      // Reuse the current hold if the upload failed last time; otherwise hold the dates now
-      // (and tell the server to release any earlier hold, so it doesn't block our own dates).
+      
       let h = hold && !holdExpired ? hold : null;
       if (!h) {
         setBusyLabel("Holding your dates…");
@@ -350,7 +346,7 @@ export default function Book() {
     try {
       const { checkoutUrl } = await startCheckout(hold.bookingRef);
       if (checkoutUrl.startsWith("/")) navigate(checkoutUrl); // demo mode
-      else window.location.assign(checkoutUrl); // SumUp hosted checkout (stays "busy" while the page leaves)
+      else window.location.assign(checkoutUrl); 
     } catch (err) {
       handleBookingError(err);
       setBusy(false);
@@ -397,11 +393,11 @@ export default function Book() {
               Back to the apartment
             </Link> */}
             <h1 className="mt-2 text-h1 md:text-[52px]">Book your stay</h1>
-            {IS_DEMO && (
+            {/* {IS_DEMO && (
               <p className="mt-2 inline-flex rounded-pill bg-warning-bg px-3 py-1 text-[12px] font-semibold text-warning-ink">
                 Demo mode — sample dates and prices, no payment taken
               </p>
-            )}
+            )} */}
           </div>
 
           {/* Step indicator */}

@@ -74,7 +74,7 @@ export default function DateRangeCalendar({ checkIn, checkOut, blocked, minNight
           return;
         }
         if (nightsBetween(checkIn, day) < minNights) {
-          setNotice(`The minimum stay is ${minNights} nights.`);
+          setNotice(`The minimum stay is ${minNights} night${minNights === 1 ? "" : "s"}.`);
           return;
         }
         onChange(checkIn, day);
@@ -170,7 +170,7 @@ export default function DateRangeCalendar({ checkIn, checkOut, blocked, minNight
         <span><span className="cal-legend__swatch bg-navy-100" />Your stay</span>
         <span><span className="cal-legend__swatch bg-slate-100" />Unavailable</span>
         <span><span className="cal-legend__swatch" style={{ background: "linear-gradient(135deg,#fff 50%,#d9dde1 50%)", boxShadow: "inset 0 0 0 1px #d9dde1" }} />Check-out only</span>
-        <span className="ml-auto text-ink-subtle">Minimum stay {minNights} nights</span>
+        <span className="ml-auto text-ink-subtle">Minimum stay {minNights} night{minNights === 1 ? "" : "s"}</span>
       </div>
     </div>
   );
