@@ -4,7 +4,7 @@
  * carrying over any dates and guests already picked in the hero.
  *
  * Desktop/tablet: card in the top-right corner, just under the navbar.
- * Mobile: a round-cornered button floating in the bottom-right corner (easy to reach with a thumb).
+ * Mobile: a bar along the bottom of the screen with the price, discount chips and button.
  *
  * To move it to the LEFT: change `right-4 lg:right-8` to `left-4 lg:left-8` (both places below).
  * If it overlaps your navbar, change `--header-h` (your navbar's height) in the style below.
@@ -72,21 +72,46 @@ export default function StickyBooking({ visible, checkIn, checkOut, guests, maxG
             </button>
           </motion.aside>
 
-          {/* ---------- Mobile: floating button, bottom-right ---------- */}
-          <motion.div
-            key="sticky-fab"
+          {/* ---------- Mobile: bar along the bottom with price, discounts and button ---------- */}
+          <motion.aside
+            key="sticky-bar"
+            aria-label="Book your stay"
             initial={reduce ? { opacity: 0 } : { opacity: 0, y: 16 }}
             animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0 }}
             exit={reduce ? { opacity: 0 } : { opacity: 0, y: 16 }}
             transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed right-4 z-40 md:hidden"
-            style={{ bottom: "calc(16px + env(safe-area-inset-bottom))" }}
+            className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface px-4 pt-3 shadow-overlay md:hidden"
+            style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom))" }}
           >
-            <button type="button" onClick={onBook} className="btn btn-cta rounded-pill px-5 shadow-overlay">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" /></svg>
-              Check availability
-            </button>
-          </motion.div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                {priceFrom ? (
+                  <p className="text-small text-ink-muted">
+                    <span className="font-semibold text-navy-900">From {priceFrom}</span> a night
+                  </p>
+                ) : (
+                  <p className="text-small font-semibold text-navy-900">
+                    {hasDates ? `${short(checkIn)} – ${short(checkOut)}` : "Add dates for prices"}
+                  </p>
+                )}
+                <p className="truncate text-[12px] text-ink-subtle">
+                  {hasDates
+                    ? `${short(checkIn)} – ${short(checkOut)} · ${guests} ${guests === 1 ? "guest" : "guests"}`
+                    : `Entire house · up to ${maxGuests} guests`}
+                </p>
+              </div>
+              <button type="button" onClick={onBook} className="btn btn-cta shrink-0 px-4">
+                Check availability
+              </button>
+            </div>
+            {badges.length > 0 && (
+              <ul className="-mx-4 mt-2 flex gap-1.5 overflow-x-auto px-4 pb-0.5" aria-label="Discounts">
+                {badges.map((b) => (
+                  <li key={b} className="chip chip-sm shrink-0 whitespace-nowrap" data-status="confirmed">{b}</li>
+                ))}
+              </ul>
+            )}
+          </motion.aside>
         </>
       )}
     </AnimatePresence>,
