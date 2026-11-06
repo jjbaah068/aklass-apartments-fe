@@ -96,7 +96,7 @@ export default function LeaveReview() {
 
   // Step 2: the review
   const [rating, setRating] = useState(0);
-  const [cats, setCats] = useState<Record<CategoryKey, number>>({ cleanliness: 0, accuracy: 0, checkIn: 0, communication: 0, location: 0, value: 0 });
+  const [cats, setCats] = useState<Record<CategoryKey, number>>({ cleanliness: 0, accuracy: 0, checkIn: 0, communication: 0, location: 0, value: 0, kitchen: 0, parking: 0 });
   const [tripType, setTripType] = useState("");
   const [text, setText] = useState("");
   const [displayName, setDisplayName] = useState("");

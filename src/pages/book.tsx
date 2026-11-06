@@ -17,8 +17,10 @@ import {
   createHold,
   formatDateUK,
   formatGBP,
+  DEFAULT_HOUSE_RULES,
   getBlockedNights,
   getQuote,
+  guestLabel,
   formatTime,
   nightsBetween,
   rangeIsFree,
@@ -32,6 +34,35 @@ import {
 } from "../lib/booking";
 
 type Step = 1 | 2 | 3 | 4;
+
+/** One row of the guests box: a label on the left, − count + on the right. */
+function GuestStepper({ label, hint, value, min, canAdd, onChange }: {
+  label: string;
+  hint: string;
+  value: number;
+  min: number;
+  canAdd: boolean;
+  onChange: (n: number) => void;
+}) {
+  const noun = label.toLowerCase().replace(/ren$|s$/, "");
+  return (
+    <div className="flex items-center justify-between gap-4 p-4">
+      <div>
+        <p className="font-semibold text-navy-900">{label}</p>
+        <p className="text-[13px] text-ink-subtle">{hint}</p>
+      </div>
+      <div className="stepper">
+        <button type="button" className="stepper-btn" aria-label={`Remove ${noun === "child" ? "a" : "an"} ${noun}`} disabled={value <= min} onClick={() => onChange(value - 1)}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M5 12h14" /></svg>
+        </button>
+        <output className="stepper-value" aria-live="polite" aria-label={label}>{value}</output>
+        <button type="button" className="stepper-btn" aria-label={`Add ${noun === "child" ? "a" : "an"} ${noun}`} disabled={!canAdd} onClick={() => onChange(value + 1)}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+        </button>
+      </div>
+    </div>
+  );
+}
 
 const STEPS = ["Dates & guests", "Your details", "Verify ID", "Review & pay"];
 
@@ -92,7 +123,15 @@ export default function Book() {
   const [step, setStep] = useState<Step>(1);
   const [checkIn, setCheckIn] = useState<string | null>(params.get("checkIn"));
   const [checkOut, setCheckOut] = useState<string | null>(params.get("checkOut"));
-  const [guests, setGuests] = useState(() => Math.min(BOOKING.maxGuests, Math.max(1, Number(params.get("guests")) || 2)));
+  // Adults and children are counted separately; the server only needs the total.
+  // A plain ?guests= (from the home page) is treated as all adults.
+  const [adults, setAdults] = useState(() =>
+    Math.min(BOOKING.maxGuests, Math.max(1, Number(params.get("adults")) || Number(params.get("guests")) || 2)),
+  );
+  const [children, setChildren] = useState(() =>
+    Math.max(0, Math.min(BOOKING.maxGuests - adults, Number(params.get("children")) || 0)),
+  );
+  const guests = adults + children;
 
   const [blocked, setBlocked] = useState<Set<string>>(new Set());
   const [availabilityLoading, setAvailabilityLoading] = useState(true);
@@ -105,6 +144,7 @@ export default function Book() {
   const minNights = settings?.minNights ?? BOOKING.minNights;
   const maxGuests = settings?.maxGuests ?? BOOKING.maxGuests;
   const checkInFrom = formatTime(settings?.checkInFrom ?? "15:00");
+  const houseRules = settings?.houseRules ?? DEFAULT_HOUSE_RULES;
 
   const [details, setDetails] = useState<GuestDetails>(EMPTY_DETAILS);
   const [agree, setAgree] = useState(false);
@@ -172,9 +212,9 @@ export default function Book() {
         .finally(() => { if (!cancelled) setQuoteLoading(false); });
     }, 300);
     // Keep the URL in sync so the page can be refreshed or shared
-    setParams({ checkIn, checkOut, guests: String(guests) }, { replace: true });
+    setParams({ checkIn, checkOut, adults: String(adults), children: String(children) }, { replace: true });
     return () => { cancelled = true; clearTimeout(t); };
-  }, [checkIn, checkOut, guests]);
+  }, [checkIn, checkOut, adults, children]);
   /* ---------- Hold countdown ---------- */
   useEffect(() => {
     if (!hold) { setHoldLeft(null); return; }
@@ -363,14 +403,15 @@ export default function Book() {
       <StaySummary
         checkIn={checkIn}
         checkOut={checkOut}
-        guests={guests}
+        adults={adults}
+        children={children}
         quote={shownQuote}
         quoteLoading={quoteLoading && !hold}
         quoteError={quoteError}
         holdSecondsLeft={step >= 3 ? holdLeft : null}
       />
     ),
-    [checkIn, checkOut, guests, shownQuote, quoteLoading, quoteError, hold, step, holdLeft],
+    [checkIn, checkOut, adults, children, shownQuote, quoteLoading, quoteError, hold, step, holdLeft],
   );
 
   const field = (k: keyof GuestDetails | "agree") => ({
@@ -484,25 +525,27 @@ export default function Book() {
                       )}
 
                       {/* Guests */}
-                      <div className="mt-6 flex items-center justify-between gap-4 rounded-card border border-line p-4">
-                        <div>
-                          <p className="font-semibold text-navy-900">Guests</p>
-                          <p className={`text-[13px] ${guests >= maxGuests ? "font-semibold text-gold-700" : "text-ink-subtle"}`}>
-                            {guests >= maxGuests ? `Maximum ${maxGuests} guests reached` : "Adults and children"}
-                          </p>
-                        </div>
-                        <div className="stepper">
-                          <button type="button" className="stepper-btn" aria-label="Remove a guest" disabled={guests <= 1} onClick={() => setGuests((g) => g - 1)}>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M5 12h14" /></svg>
-                          </button>
-                          <output className="stepper-value" aria-live="polite">{guests}</output>
-                          <button type="button" className="stepper-btn" aria-label="Add a guest" disabled={guests >= maxGuests} onClick={() => setGuests((g) => Math.min(maxGuests, g + 1))}>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-                          </button>
-                        </div>
+                      <div className="mt-6 divide-y divide-line rounded-card border border-line">
+                        <GuestStepper
+                          label="Adults"
+                          hint="Age 13 or over"
+                          value={adults}
+                          min={1}
+                          canAdd={guests < maxGuests}
+                          onChange={setAdults}
+                        />
+                        <GuestStepper
+                          label="Children"
+                          hint="Ages 2–12"
+                          value={children}
+                          min={0}
+                          canAdd={guests < maxGuests}
+                          onChange={setChildren}
+                        />
                       </div>
-                      <p className="mt-2 text-[13px] text-ink-subtle">
-                        More than {maxGuests}? <Link to="/contact">Contact us</Link> before booking.
+                      <p className={`mt-2 text-[13px] ${guests >= maxGuests ? "font-semibold text-gold-700" : "text-ink-subtle"}`}>
+                        {guests >= maxGuests ? `Maximum ${maxGuests} guests reached. ` : `Up to ${maxGuests} guests in total. `}
+                        <span className="font-normal text-ink-subtle">More than {maxGuests}? <Link to="/contact">Contact us</Link> before booking.</span>
                       </p>
 
                       {/* Mobile summary */}
@@ -574,10 +617,18 @@ export default function Book() {
                       </div>
 
                       <div className="rounded-control bg-stone-50 p-4">
+                        {houseRules.length > 0 && (
+                          <div className="mb-4 border-b border-line pb-4">
+                            <p className="text-sm font-semibold">House rules</p>
+                            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
+                              {houseRules.map((rule, i) => <li key={i}>{rule}</li>)}
+                            </ul>
+                          </div>
+                        )}
                         <label className="check">
                           <input {...field("agree")} type="checkbox" checked={agree} onChange={(e) => { setAgree(e.target.checked); setErrors((x) => ({ ...x, agree: undefined })); }} />
                           <span>
-                            I agree to the <Link to="/#faqs">house rules</Link> and <Link to="/terms">booking terms</Link>, including the £50 surcharge for rule breaches and £75 plus cost for damage or missing items.
+                            I agree to {houseRules.length > 0 ? "the house rules above and " : ""}the <Link to="/terms">booking terms</Link>, including the £50 surcharge for rule breaches and £75 plus cost for damage or missing items.
                           </span>
                         </label>
                         <Err id={`${id}-agree-err`} msg={errors.agree} />
@@ -749,7 +800,7 @@ export default function Book() {
                       <dl className="divide-y divide-line rounded-card border border-line">
                         {[
                           { k: "Stay", v: `${formatDateUK(checkIn)} – ${formatDateUK(checkOut)}`, sub: `${nights} nights · check-in from ${checkInFrom}`, edit: 1 as Step },
-                          { k: "Guests", v: `${guests} ${guests === 1 ? "guest" : "guests"}`, edit: 1 as Step },
+                          { k: "Guests", v: guestLabel(adults, children), edit: 1 as Step },
                           { k: "Lead guest", v: details.fullName, sub: `${details.email} · ${details.phoneCountry === "other" ? "" : details.phoneCountry + " "}${details.phone}`, edit: 2 as Step },
                           { k: "Arrival", v: details.arrivalTime, edit: 2 as Step },
                           { k: "Photo ID", v: ID_TYPES.find((t) => t.value === idType)?.label ?? "", sub: "Uploaded · checked after payment", edit: 3 as Step },

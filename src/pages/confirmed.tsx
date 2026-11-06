@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { motion } from "motion/react";
 import Navbar from "../components/navbar";
+import ReceiptCard from "../components/receiptcard";
 import Footer from "../components/footer";
 import { EASE } from "../components/reveal";
 import {
@@ -10,8 +11,13 @@ import {
   formatDateUK,
   formatGBP,
   getBookingStatus,
+  getReceipt,
+  loadReceiptKey,
+  receiptPdfUrl,
+  saveReceiptKey,
   startCheckout,
   type BookingStatusResponse,
+  type Receipt,
 } from "../lib/booking";
 import { WAKE_UP_MESSAGE, useSlow } from "../lib/hooks";
 
@@ -24,6 +30,14 @@ type View =
   | { kind: "not_found" }
   | { kind: "error"; message: string }
   | { kind: "status"; data: BookingStatusResponse };
+
+type ReceiptView =
+  | { kind: "idle" }
+  | { kind: "loading" }
+  | { kind: "ready"; receipt: Receipt }
+  /** 404 / 409: hide the receipt, keep the status message. */
+  | { kind: "hidden" }
+  | { kind: "error"; message: string };
 
 /** What to tell the guest for each payment/status combination (API section 2.8). */
 function describe(d: BookingStatusResponse, stillWaiting: boolean) {
@@ -43,9 +57,12 @@ function describe(d: BookingStatusResponse, stillWaiting: boolean) {
 }
 
 export default function Confirmed() {
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const ref = (params.get("ref") ?? "").trim();
+  const urlKey = (params.get("key") ?? "").trim();
+  // The receipt key: from SumUp's link back, or saved in this tab when the hold was made
+  const [receiptKey] = useState(() => urlKey || (ref ? loadReceiptKey(ref) : null) || null);
 
   const [view, setView] = useState<View>(ref ? { kind: "loading" } : { kind: "not_found" });
   const [tries, setTries] = useState(0);
@@ -54,6 +71,17 @@ export default function Confirmed() {
   const [holdGone, setHoldGone] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const slow = useSlow(view.kind === "loading");
+  const [receiptView, setReceiptView] = useState<ReceiptView>({ kind: "idle" });
+  const [receiptTry, setReceiptTry] = useState(0);
+  const [savingImage, setSavingImage] = useState(false);
+  const receiptRef = useRef<HTMLDivElement>(null);
+
+  /* Keep the key, then take it out of the address bar so it isn't on screen. */
+  useEffect(() => {
+    if (!urlKey) return;
+    if (ref) saveReceiptKey(ref, urlKey);
+    setParams((p) => { const next = new URLSearchParams(p); next.delete("key"); return next; }, { replace: true });
+  }, [urlKey, ref, setParams]);
 
   /* Load the status, and keep asking while the payment is "pending" (up to ~1 minute). */
   useEffect(() => {
@@ -63,7 +91,9 @@ export default function Confirmed() {
       .then((data) => {
         if (cancelled) return;
         setView({ kind: "status", data });
-        if (data.payment === "pending" && tries < POLL_TRIES) {
+        // Keep asking while SumUp hasn't answered, or while paid but the receipt isn't ready yet
+        const waiting = data.payment === "pending" || (data.payment === "paid" && !data.receiptReady);
+        if (waiting && tries < POLL_TRIES) {
           timer.current = setTimeout(() => setTries((n) => n + 1), POLL_EVERY_MS);
         }
       })
@@ -77,6 +107,53 @@ export default function Confirmed() {
       if (timer.current) clearTimeout(timer.current);
     };
   }, [ref, tries]);
+
+  /* Load the receipt once the booking is paid. */
+  const receiptReady = view.kind === "status" && view.data.receiptReady;
+  useEffect(() => {
+    if (!ref || !receiptKey || !receiptReady) return;
+    let cancelled = false;
+    getReceipt(ref, receiptKey)
+      .then((receipt) => { if (!cancelled) setReceiptView({ kind: "ready", receipt }); })
+      .catch((e) => {
+        if (cancelled) return;
+        if (e instanceof BookingError && (e.status === 404 || e.status === 409)) setReceiptView({ kind: "hidden" });
+        else setReceiptView({ kind: "error", message: e instanceof Error ? e.message : "Please try again." });
+      });
+    return () => { cancelled = true; };
+  }, [ref, receiptKey, receiptReady, receiptTry]);
+
+  function downloadPdf() {
+    if (!receiptKey) return;
+    window.location.assign(receiptPdfUrl(ref, receiptKey, true));
+  }
+
+  function openPdf() {
+    if (!receiptKey) return;
+    const url = receiptPdfUrl(ref, receiptKey);
+    const tab = window.open(url, "_blank");
+    if (tab) tab.opener = null;
+    else window.location.assign(url);
+  }
+
+  async function saveImage() {
+    if (!receiptRef.current) return;
+    setSavingImage(true);
+    try {
+      const { toPng } = await import("html-to-image"); // only loaded when needed
+      const dataUrl = await toPng(receiptRef.current, { pixelRatio: 2, backgroundColor: "#ffffff" });
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `Aklass-receipt-${ref}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch {
+      if (!IS_DEMO) openPdf(); // couldn't draw the image: the PDF has the same receipt
+    } finally {
+      setSavingImage(false);
+    }
+  }
 
   /* "Try again" after a failed payment: a new SumUp page for the same hold. */
   async function tryAgain() {
@@ -100,6 +177,7 @@ export default function Confirmed() {
   const unpaid = data && (data.payment === "failed" || data.payment === "not_started");
   // A new payment page only works while the 30-minute hold is still active
   const canRetry = unpaid && data.status === "hold" && !holdGone;
+  const showReceipt = data?.payment === "paid" && receiptView.kind !== "hidden";
 
   return (
     <>
@@ -213,6 +291,52 @@ export default function Confirmed() {
               </div>
             )}
           </motion.div>
+
+          {data && showReceipt && (
+            <section className="receipt-section mt-6 max-w-[44rem]" aria-label="Your receipt">
+              {!receiptKey ? (
+                <p className="card p-5 text-small text-ink-muted">Your receipt link is in your confirmation email.</p>
+              ) : receiptView.kind === "error" ? (
+                <div className="card flex flex-col gap-3 p-5">
+                  <p className="text-small text-ink-muted">We couldn't load your receipt. {receiptView.message}</p>
+                  <button type="button" className="btn btn-outline btn-sm self-start" onClick={() => { setReceiptView({ kind: "loading" }); setReceiptTry((n) => n + 1); }}>Try again</button>
+                </div>
+              ) : receiptView.kind === "ready" ? (
+                <>
+                  <motion.div
+                    className="card-raised"
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, ease: EASE }}
+                  >
+                    <ReceiptCard ref={receiptRef} receipt={receiptView.receipt} />
+                  </motion.div>
+                  <div className="receipt-actions mt-4 grid grid-cols-1 gap-3 sm:flex sm:flex-wrap">
+                    {!IS_DEMO && (
+                      <button type="button" className="btn btn-primary" onClick={downloadPdf}>Download PDF</button>
+                    )}
+                    <button type="button" className="btn btn-outline" onClick={saveImage} disabled={savingImage} aria-busy={savingImage}>
+                      {savingImage ? "Saving…" : "Save as image"}
+                    </button>
+                    <button type="button" className="btn btn-outline" onClick={() => window.print()}>Print</button>
+                  </div>
+                </>
+              ) : (
+                <div className="card-raised flex flex-col gap-3 p-5 sm:p-8" aria-busy="true" aria-label="Loading your receipt">
+                  <div className="skeleton h-7 w-1/2" />
+                  <div className="skeleton h-4 w-full" />
+                  <div className="skeleton h-4 w-full" />
+                  <div className="skeleton h-4 w-2/3" />
+                  {!data.receiptReady && tries >= POLL_TRIES && (
+                    <>
+                      <p className="text-small text-ink-subtle">Your receipt is taking a little longer than usual.</p>
+                      <button type="button" className="btn btn-outline btn-sm self-start" onClick={() => setTries(0)}>Check again</button>
+                    </>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
         </div>
       </main>
 

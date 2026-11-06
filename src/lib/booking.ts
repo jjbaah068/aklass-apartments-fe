@@ -47,6 +47,12 @@ export function formatGBP(amount: number) {
   return GBP.format(amount);
 }
 
+/** "2 adults, 1 child" (children left out when there are none). */
+export function guestLabel(adults: number, children = 0) {
+  const a = `${adults} ${adults === 1 ? "adult" : "adults"}`;
+  return children > 0 ? `${a}, ${children} ${children === 1 ? "child" : "children"}` : a;
+}
+
 /** True if every night from checkIn up to (not including) checkOut is free. */
 export function rangeIsFree(checkIn: string, checkOut: string, blocked: Set<string>) {
   for (let d = checkIn; d < checkOut; d = addDays(d, 1)) if (blocked.has(d)) return false;
@@ -62,6 +68,8 @@ export type PublicSettings = {
   maxGuests: number;
   checkInFrom: string;
   checkOutBy: string;
+  /** Set by the owner in the admin (Stay rules). Missing on older backends: use DEFAULT_HOUSE_RULES. */
+  houseRules?: string[];
   nightlyRate: number;
   /** null = Fri/Sat cost the same as other nights. */
   weekendRate: number | null;
@@ -76,6 +84,15 @@ export type PublicSettings = {
   };
 };
 
+/** The backend's default rules, used in demo mode or if the settings can't be loaded */
+export const DEFAULT_HOUSE_RULES = [
+  "No smoking inside the house. Please use the designated smoking area in the garden.",
+  "Quiet hours after 7:00 PM.",
+  "No parties or events.",
+  "Only registered guests may stay at the property.",
+  "Pets are allowed by prior agreement only.",
+];
+
 /** Demo numbers. They match the live backend's defaults so demo prices look the same. */
 export const DEMO_SETTINGS: PublicSettings = {
   minNights: 1,
@@ -83,6 +100,7 @@ export const DEMO_SETTINGS: PublicSettings = {
   maxGuests: 7,
   checkInFrom: "15:00",
   checkOutBy: "11:00",
+  houseRules: DEFAULT_HOUSE_RULES,
   nightlyRate: 160,
   weekendRate: null,
   cleaningFee: 60,
@@ -204,6 +222,8 @@ export type Hold = {
   checkoutUrl: string | null;
   /** The server's final price for this hold. */
   quote: Quote;
+  /** Private key that opens the guest's receipt after paying. Never show or log it. */
+  receiptKey: string;
 };
 
 /* ---------- Booking status (API section 2.8) ---------- */
@@ -220,6 +240,8 @@ export type BookingStatusResponse = {
   nights: number;
   guests: number;
   total: number;
+  /** True once paid: then getReceipt() works. */
+  receiptReady: boolean;
 };
 
 /* ---------- Errors (API section 3) ---------- */
@@ -231,6 +253,8 @@ export type BookingErrorCode =
   | "INVALID" | "ID_INVALID" | "HOLD_EXPIRED" | "NOT_FOUND"
   // Payment
   | "ID_REQUIRED" | "ALREADY_PAID" | "PAYMENT_PROVIDER_ERROR" | "PAYMENTS_NOT_SET_UP"
+  // Receipt
+  | "NOT_PAID"
   // Anywhere
   | "TOO_MANY_REQUESTS" | "SERVER_ERROR" | "BAD_REQUEST" | "FORBIDDEN_ORIGIN"
   // Frontend only
@@ -388,16 +412,21 @@ export async function createHold(req: HoldRequest): Promise<Hold> {
       throw new BookingError("DATES_TAKEN", "Those dates were just taken.");
     }
     const ref = `AKL-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-    return {
+    const hold: Hold = {
       bookingRef: ref,
       holdExpiresAt: new Date(Date.now() + BOOKING.holdMinutes * 60_000).toISOString(),
       checkoutUrl: null,
       quote: demoQuote(req.checkIn, req.checkOut, req.guests),
+      receiptKey: "demo",
     };
+    saveReceiptKey(ref, "demo");
+    return hold;
   }
   // Leave out optional fields the guest left blank (e.g. "Prefer not to say" purpose)
   const details = Object.fromEntries(Object.entries(req.details).filter(([, v]) => v.trim() !== ""));
-  return api<Hold>("/bookings/hold", { method: "POST", body: JSON.stringify({ ...req, details }) });
+  const hold = await api<Hold>("/bookings/hold", { method: "POST", body: JSON.stringify({ ...req, details }) });
+  if (hold.receiptKey) saveReceiptKey(hold.bookingRef, hold.receiptKey);
+  return hold;
 }
 
 /**
@@ -452,7 +481,117 @@ export async function getBookingStatus(bookingRef: string): Promise<BookingStatu
       nights: 3,
       guests: 2,
       total: demoQuote(checkIn, checkOut, 2).total,
+      receiptReady: true,
     };
   }
   return api<BookingStatusResponse>(`/bookings/${enc(bookingRef)}/status`);
+}
+
+/* ---------- Guest receipt ---------- */
+
+export type ReceiptLine = {
+  label: string;
+  /** Pounds. Discounts are negative. */
+  amount: number;
+};
+
+export type Receipt = {
+  receiptNumber: string;
+  /** ISO date-time. */
+  issuedAt: string;
+  currency: "GBP";
+  business: {
+    tradingName: string;
+    legalName: string;
+    addressLines: string[];
+    email: string | null;
+    phone: string | null;
+    website: string | null;
+    vatNumber: string | null;
+  };
+  guest: { name: string; email: string };
+  stay: {
+    ref: string;
+    checkIn: string;
+    checkOut: string;
+    /** "15:00" */
+    checkInFrom: string;
+    /** "11:00" */
+    checkOutBy: string;
+    nights: number;
+    guests: number;
+  };
+  lines: ReceiptLine[];
+  total: number;
+  payment: { method: string; amountPaid: number; paidAt: string; transactionCode: string | null };
+  refund: { amount: number; at: string | null } | null;
+  netPaid: number;
+  paymentStatus: "paid" | "partially_refunded" | "refunded";
+  bookingStatus: BookingStatus;
+  statusLabel: string;
+  note: string | null;
+};
+
+const receiptStorageKey = (ref: string) => `aklass-receipt-${ref.toUpperCase()}`;
+
+/** Remembers the receipt key for this tab, so the confirmation page can find it. */
+export function saveReceiptKey(ref: string, key: string) {
+  try {
+    sessionStorage.setItem(receiptStorageKey(ref), key);
+  } catch {
+    /* storage blocked (private mode etc.): the key is still in SumUp's link back */
+  }
+}
+
+export function loadReceiptKey(ref: string): string | null {
+  try {
+    return sessionStorage.getItem(receiptStorageKey(ref));
+  } catch {
+    return null;
+  }
+}
+
+function demoReceipt(ref: string): Receipt {
+  const checkIn = addDays(todayISO(), 14);
+  const checkOut = addDays(checkIn, 3);
+  const q = demoQuote(checkIn, checkOut, 2);
+  const paidAt = new Date().toISOString();
+  return {
+    receiptNumber: `R-${ref}`,
+    issuedAt: paidAt,
+    currency: "GBP",
+    business: { tradingName: "Aklass Luxury Stay", legalName: "Aklass Luxury Stay", addressLines: ["Wolverhampton", "WV10"], email: null, phone: null, website: null, vatNumber: null },
+    guest: { name: "Sample Guest", email: "guest@example.com" },
+    stay: { ref, checkIn, checkOut, checkInFrom: DEMO_SETTINGS.checkInFrom, checkOutBy: DEMO_SETTINGS.checkOutBy, nights: q.nights, guests: 2 },
+    lines: [
+      { label: `Accommodation (${q.nights} nights)`, amount: q.accommodationBeforeDiscounts },
+      ...q.discounts.map((d) => ({ label: d.label, amount: -d.amount })),
+      { label: "Cleaning fee", amount: q.cleaningFee },
+    ],
+    total: q.total,
+    payment: { method: "Card (SumUp)", amountPaid: q.total, paidAt, transactionCode: "DEMO1234" },
+    refund: null,
+    netPaid: q.total,
+    paymentStatus: "paid",
+    bookingStatus: "id_review",
+    statusLabel: "Paid: ID check in progress",
+    note: null,
+  };
+}
+
+/**
+ * The guest's receipt. Errors: 404 NOT_FOUND (wrong key or no booking), 409 NOT_PAID.
+ * The key goes in the URL, so never log the request.
+ */
+export async function getReceipt(bookingRef: string, key: string): Promise<Receipt> {
+  if (IS_DEMO) {
+    await wait(300);
+    return demoReceipt(bookingRef);
+  }
+  return api<Receipt>(`/bookings/${enc(bookingRef)}/receipt?key=${enc(key)}`);
+}
+
+/** Link to the receipt PDF. download = save it instead of opening it in the browser. */
+export function receiptPdfUrl(bookingRef: string, key: string, download?: boolean) {
+  return `${API_URL}/bookings/${enc(bookingRef)}/receipt.pdf?key=${enc(key)}${download ? "&download=1" : ""}`;
 }

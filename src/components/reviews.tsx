@@ -7,8 +7,8 @@ import { useId } from "react";
 import { Link } from "react-router";
 import { motion } from "motion/react";
 import { fadeUp, stagger } from "./reveal";
-import { MIN_REVIEWS_TO_SHOW } from "../lib/reviews";
-import { AirbnbRating, RatingSummary, ReviewCard, ScoreHeading, useReviews } from "./reviewparts";
+import { AIRBNB, MIN_REVIEWS_TO_SHOW } from "../lib/reviews";
+import { AirbnbReviews, RatingSummary, ReviewCard, ScoreHeading, useReviews } from "./reviewparts";
 
 export default function Reviews() {
   const id = useId();
@@ -41,7 +41,10 @@ export default function Reviews() {
         {data && !enough && (
           <>
             <motion.h2 variants={fadeUp} id={`${id}-title`} className="mt-3 text-h1 text-navy-900">What our guests say</motion.h2>
-            <motion.div variants={fadeUp} className="mt-8"><AirbnbRating /></motion.div>
+            <motion.div variants={fadeUp}><AirbnbReviews className="mt-8" /></motion.div>
+            <motion.div variants={fadeUp} className="mt-10 flex justify-center">
+              <Link to="/reviews/new" className="btn btn-primary sm:px-8">Leave a review</Link>
+            </motion.div>
           </>
         )}
 
@@ -56,10 +59,11 @@ export default function Reviews() {
             </motion.div>
 
             {/* Latest reviews: grid on desktop, swipeable row on mobile */}
+            <motion.p variants={fadeUp} className="mt-10 text-h3 text-navy-900">From guests who booked with us</motion.p>
             <motion.ul
               variants={fadeUp}
               aria-label="Latest reviews"
-              className="-mx-4 mt-10 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 md:mx-0 md:grid md:grid-cols-3 md:gap-8 md:overflow-visible md:px-0"
+              className="-mx-4 mt-6 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 md:mx-0 md:grid md:grid-cols-3 md:gap-8 md:overflow-visible md:px-0"
             >
               {latest.map((r) => (
                 <li key={r.id} className="w-[85%] shrink-0 snap-start rounded-card border border-line bg-surface p-5 md:w-auto md:border-0 md:bg-transparent md:p-0">
@@ -68,12 +72,18 @@ export default function Reviews() {
               ))}
             </motion.ul>
 
+            <motion.div variants={fadeUp}><AirbnbReviews limit={3} className="mt-14 border-t border-line pt-10" /></motion.div>
+
             <motion.div variants={fadeUp} className="mt-10 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
               <Link to="/reviews" className="btn btn-outline sm:px-8">Show all {data.summary.count} reviews</Link>
               <Link to="/reviews/new" className="btn btn-primary sm:px-8">
                 <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5L2.5 9.4l6.6-.9z" fill="currentColor" /></svg>
                 Leave a review
               </Link>
+              <a href={AIRBNB.url} target="_blank" rel="noopener noreferrer" className="btn btn-outline sm:px-8">
+                Review us on Airbnb
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8" /></svg>
+              </a>
             </motion.div>
           </>
         )}

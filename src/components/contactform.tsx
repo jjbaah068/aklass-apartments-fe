@@ -4,7 +4,8 @@ import { AnimatePresence, motion } from "motion/react";
 import { Reveal, EASE } from "./reveal";
 
 
-const ENDPOINT = import.meta.env.VITE_CONTACT_ENDPOINT as string | undefined;
+// Enquiries are saved by the backend (POST /enquiries), which emails the owner
+const API_URL = (import.meta.env.VITE_API_URL as string | undefined)?.replace(/\/$/, "");
 const RESPONSE_TIME = "24 hours";
 
 const TOPICS = [
@@ -45,6 +46,7 @@ const EMPTY: Fields = {
 
 type Errors = Partial<Record<keyof Fields, string>>;
 type Status = "idle" | "sending" | "sent" | "error";
+const NETWORK_ERROR = "Please check your connection and try again your details are still here. Or message us on WhatsApp.";
 
 function validate(f: Fields): Errors {
   const e: Errors = {};
@@ -74,6 +76,7 @@ export default function ContactForm() {
   const [fields, setFields] = useState<Fields>(EMPTY);
   const [errors, setErrors] = useState<Errors>({});
   const [status, setStatus] = useState<Status>("idle");
+  const [errorText, setErrorText] = useState(NETWORK_ERROR);
 
   const showDates = fields.topic === TOPICS[0] || fields.topic === TOPICS[1] || fields.topic === TOPICS[2];
 
@@ -94,19 +97,33 @@ export default function ContactForm() {
     if (fields.company) { setStatus("sent"); return; } 
 
     setStatus("sending");
+    setErrorText(NETWORK_ERROR);
     try {
-      const { consent, company, ...payload } = fields;
-      void consent; void company;
-      if (!ENDPOINT) {
-        // No backend yet — simulate so the UI can be tested
+      const { consent, ...payload } = fields;
+      void consent;
+      if (!showDates) Object.assign(payload, { checkIn: "", checkOut: "", guests: "" }); // hidden fields aren't sent
+      if (!API_URL) {
+        // No backend connected — simulate so the UI can be tested
         await new Promise((r) => setTimeout(r, 900));
       } else {
-        const res = await fetch(ENDPOINT, {
+        const res = await fetch(`${API_URL}/enquiries`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Accept: "application/json" },
           body: JSON.stringify(payload),
         });
-        if (!res.ok) throw new Error(String(res.status));
+        if (!res.ok) {
+          const data = (await res.json().catch(() => ({}))) as { message?: string; fields?: Record<string, string> };
+          // Show the server's field errors next to the right boxes
+          if (res.status === 400 && data.fields) {
+            const keys = Object.keys(data.fields).filter((k): k is keyof Fields => k in EMPTY);
+            if (keys.length) {
+              setErrors(Object.fromEntries(keys.map((k) => [k, data.fields![k]])));
+              document.getElementById(`${id}-${keys[0]}`)?.focus();
+            }
+          }
+          if (data.message) setErrorText(data.message);
+          throw new Error(String(res.status));
+        }
       }
       setStatus("sent");
       setFields(EMPTY);
@@ -220,7 +237,7 @@ export default function ContactForm() {
                       </svg>
                       <div>
                         <span className="alert__title">Your message didn't send</span>
-                        Please check your connection and try again your details are still here. Or message us on WhatsApp.
+                        {errorText}
                       </div>
                     </div>
                   )}

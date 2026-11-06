@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import LegalPage, { type LegalSection } from "../components/legalpage";
+import { useHouseRules } from "../lib/hooks";
 
 const COMPANY = "Aklass Dynamic Services";
 const EMAIL = "aklassdynamic@gmail.com";
@@ -90,15 +91,9 @@ const sections: LegalSection[] = [
     body: (
       <>
         <p>To keep the home comfortable for every guest and respectful to our neighbours:</p>
-        <ul>
-          <li>No smoking inside the house. Please use the designated smoking area in the garden.</li>
-          <li>Quiet hours after 7:00 PM.</li>
-          <li>No parties or events.</li>
-          <li>Only registered guests may stay at the property.</li>
-          <li>Pets are allowed by prior agreement only.</li>
-        </ul>
+        <HouseRulesList />
         <p>
-          If the rules are seriously broken we may ask guests to leave without a refund. [Confirm with the owner.]
+          If the rules are seriously broken we may ask guests to leave without a refund. 
         </p>
       </>
     ),
@@ -158,6 +153,18 @@ const sections: LegalSection[] = [
     ),
   },
 ];
+
+/** The house rules the owner set in the admin (Stay rules) */
+function HouseRulesList() {
+  const rules = useHouseRules();
+  if (!rules) return <p aria-busy="true">Loading the house rules…</p>;
+  if (rules.length === 0) return null;
+  return (
+    <ul>
+      {rules.map((rule, i) => <li key={i}>{rule}</li>)}
+    </ul>
+  );
+}
 
 export default function Terms() {
   return (

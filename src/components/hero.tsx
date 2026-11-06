@@ -157,7 +157,7 @@ export default function Hero() {
           {settings && (
             <motion.div variants={fadeUp} className="mt-5">
               <p className="text-body-lg text-ink-muted">
-                <span className="font-display text-[28px] font-semibold text-navy-900">From {priceFrom}</span> a night
+                <span className="font-display text-[28px] font-semibold text-navy-900">From <span className="price">{priceFrom}</span></span> a night
               </p>
               {/* {badges.length > 0 && (
                 <ul className="mt-2 flex flex-wrap gap-2" aria-label="Discounts">

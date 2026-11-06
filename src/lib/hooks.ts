@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getPublicSettings, type PublicSettings } from "./booking";
+import { DEFAULT_HOUSE_RULES, getPublicSettings, type PublicSettings } from "./booking";
 
 /* One request for the whole visit: hero, sticky card and apartment page share it. */
 let settingsPromise: Promise<PublicSettings> | null = null;
@@ -25,6 +25,19 @@ export function usePublicSettings(): PublicSettings | null {
     return () => { cancelled = true; };
   }, []);
   return settings;
+}
+
+/** House rules from the admin. null while loading; the default list if loading fails. */
+export function useHouseRules(): string[] | null {
+  const [rules, setRules] = useState<string[] | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    loadPublicSettings()
+      .then((s) => { if (!cancelled) setRules(s.houseRules ?? DEFAULT_HOUSE_RULES); })
+      .catch(() => { if (!cancelled) setRules(DEFAULT_HOUSE_RULES); });
+    return () => { cancelled = true; };
+  }, []);
+  return rules;
 }
 
 /**

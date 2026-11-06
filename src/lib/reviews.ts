@@ -4,18 +4,45 @@ const API_URL = import.meta.env.VITE_API_URL as string | undefined;
 
 /* ---------- Settings ---------- */
 
-export const MIN_REVIEWS_TO_SHOW = 3;
+export const MIN_REVIEWS_TO_SHOW = 1;
 
 
 export const AIRBNB = {
   rating: 4.64,
   count: 11,
-  url: "https://www.airbnb.co.uk/", 
+  url: "https://www.airbnb.co.uk/rooms/1747182400686402874?unique_share_id=0ee222a0-1d6a-4e09-9f93-c5fe42348c69&viralityEntryPoint=1&s=76&source_impression_id=p3_1793833676_P3GccKCWOFSNQtVh", 
 };
+
+/** Reviews copied from our Airbnb listing. Add new ones at the top. */
+export type AirbnbReview = {
+  id: string;
+  name: string;
+  /** How long they've been on Airbnb, as Airbnb shows it, e.g. "2 years on Airbnb". */
+  memberFor: string;
+  rating: number;
+  /** When they stayed, as Airbnb shows it, e.g. "September 2026". */
+  date: string;
+  text: string;
+};
+
+export const AIRBNB_REVIEWS: AirbnbReview[] = [
+  {
+    id: "ab1", name: "Harprit", memberFor: "2 years on Airbnb", rating: 5, date: "October 2026",
+    text: "Good location for what we needed, needed a good nights rest was a quiet area did the job for us perfectly",
+  },
+  {
+    id: "ab2", name: "Georgia", memberFor: "5 months on Airbnb", rating: 5, date: "September 2026",
+    text: "Enjoyable stay and very friendly hosts",
+  },
+  {
+    id: "ab3", name: "Thomas", memberFor: "6 years on Airbnb", rating: 5, date: "September 2026",
+    text: "This is a nice accommodation, the host I superb, and very helpful",
+  },
+];
 
 /* ---------- Types ---------- */
 
-export type CategoryKey = "cleanliness" | "accuracy" | "checkIn" | "communication" | "location" | "value";
+export type CategoryKey = "cleanliness" | "accuracy" | "checkIn" | "communication" | "location" | "value" | "kitchen" | "parking";
 
 export const CATEGORIES: { key: CategoryKey; label: string; icon: string }[] = [
   { key: "cleanliness", label: "Cleanliness", icon: "M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8zM19 14l.9 2.1L22 17l-2.1.9L19 20l-.9-2.1L16 17l2.1-.9zM5 15l.6 1.4L7 17l-1.4.6L5 19l-.6-1.4L3 17l1.4-.6z" },
@@ -24,6 +51,8 @@ export const CATEGORIES: { key: CategoryKey; label: string; icon: string }[] = [
   { key: "communication", label: "Communication", icon: "M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" },
   { key: "location", label: "Location", icon: "M9 4L3 6v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14" },
   { key: "value", label: "Value", icon: "M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8zM7.5 7.5h.01" },
+  { key: "kitchen", label: "Kitchen", icon: "M4 11h16v6a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3zM2 11h20M9 7.5c0-1 1-1.5 1-2.5M14 7.5c0-1 1-1.5 1-2.5" },
+  { key: "parking", label: "Parking", icon: "M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zM9 17V7h4a3 3 0 0 1 0 6H9" },
 ];
 
 export type Review = {
@@ -55,8 +84,12 @@ export function summarise(reviews: Review[]): ReviewSummary {
   const count = reviews.length;
   const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } as ReviewSummary["distribution"];
   reviews.forEach((r) => { distribution[Math.round(r.rating) as 1 | 2 | 3 | 4 | 5]++; });
-  const avg = (pick: (r: Review) => number) => (count ? round1(reviews.reduce((s, r) => s + pick(r), 0) / count) : 0);
-  const categories = Object.fromEntries(CATEGORIES.map((c) => [c.key, avg((r) => r.categories[c.key])])) as ReviewSummary["categories"];
+  // Older reviews may not have every category (e.g. Kitchen and Parking were added later), so skip blanks
+  const avg = (pick: (r: Review) => number | undefined) => {
+    const vals = reviews.map(pick).filter((v): v is number => typeof v === "number" && v > 0);
+    return vals.length ? round1(vals.reduce((s, v) => s + v, 0) / vals.length) : 0;
+  };
+  const categories = Object.fromEntries(CATEGORIES.map((c) => [c.key, avg((r) => r.categories?.[c.key])])) as ReviewSummary["categories"];
   return { count, average: avg((r) => r.rating), distribution, categories };
 }
 
@@ -81,8 +114,8 @@ function monthsAgo(n: number) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-const c = (cleanliness: number, accuracy: number, checkIn: number, communication: number, location: number, value: number) =>
-  ({ cleanliness, accuracy, checkIn, communication, location, value });
+const c = (cleanliness: number, accuracy: number, checkIn: number, communication: number, location: number, value: number, kitchen = 5, parking = 5) =>
+  ({ cleanliness, accuracy, checkIn, communication, location, value, kitchen, parking });
 
 const DEMO_REVIEWS: Review[] = [
   {

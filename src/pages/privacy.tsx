@@ -9,9 +9,9 @@ const sections: LegalSection[] = [
     title: "Who we are",
     body: (
       <p>
-        Aklass Luxury Stay is run by <strong>{COMPANY}</strong> [company number / registered address], the data controller
+        Aklass Luxury Stay is run by <strong>{COMPANY}</strong>, the data controller
         for the personal information described here. You can contact us about privacy at{" "}
-        <a href={`mailto:${EMAIL}`}>{EMAIL}</a>. [ICO registration number, if registered.]
+        <a href={`mailto:${EMAIL}`}>{EMAIL}</a>.
       </p>
     ),
   },
@@ -112,7 +112,7 @@ const sections: LegalSection[] = [
     body: (
       <p>
         This website only uses cookies and similar storage that are needed for it to work, such as remembering your booking
-        progress. [If you add analytics or advertising cookies, list them here and ask for consent first.]
+        progress. 
       </p>
     ),
   },

@@ -1,10 +1,10 @@
 /**
  * Building blocks for reviews, shared by the home page section and the /reviews page:
- * star rows, the score summary (overall bars + 6 categories), a review card and the Airbnb fallback.
+ * star rows, the score summary (overall bars + 8 categories), a review card and the Airbnb fallback.
  */
 import { useEffect, useId, useState } from "react";
 import { Link } from "react-router";
-import { AIRBNB, CATEGORIES, formatMonth, getReviews, type Review, type ReviewSummary } from "../lib/reviews";
+import { AIRBNB, AIRBNB_REVIEWS, CATEGORIES, formatMonth, getReviews, type AirbnbReview, type Review, type ReviewSummary } from "../lib/reviews";
 
 /* ---------- Load reviews once per page ---------- */
 
@@ -59,7 +59,7 @@ export function ScoreHeading({ summary, as: Tag = "h2", id }: { summary: ReviewS
   );
 }
 
-/* ---------- Summary: overall bars + 6 categories ---------- */
+/* ---------- Summary: overall bars + 8 categories ---------- */
 
 export function RatingSummary({ summary }: { summary: ReviewSummary }) {
   const max = Math.max(1, ...Object.values(summary.distribution));
@@ -82,19 +82,25 @@ export function RatingSummary({ summary }: { summary: ReviewSummary }) {
       </div>
 
       {/* Categories */}
-      <ul className="grid grid-cols-2 gap-px overflow-hidden rounded-card bg-line sm:grid-cols-3 lg:grid-cols-6">
-        {CATEGORIES.map((cat) => (
-          <li key={cat.key} className="flex items-center justify-between gap-3 bg-surface p-4 lg:flex-col lg:items-start lg:justify-start">
-            <div>
-              <p className="text-small font-medium text-navy-900">{cat.label}</p>
-              <p className="text-small font-semibold text-ink-subtle tabular-nums">{summary.categories[cat.key].toFixed(1)}</p>
-            </div>
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-navy-700 lg:mt-3" aria-hidden="true">
-              <path d={cat.icon} />
-            </svg>
-          </li>
-        ))}
-      </ul>
+      {/* Every box draws its own right + bottom line; the -mr-px/-mb-px hides the ones on the outer edge */}
+      <div className="overflow-hidden rounded-card bg-surface">
+        <ul className="-mb-px -mr-px grid grid-cols-2 sm:grid-cols-4">
+          {CATEGORIES.map((cat) => {
+            const score = summary.categories?.[cat.key];
+            return (
+              <li key={cat.key} className="flex items-center justify-between gap-3 border-b border-r border-line p-4 lg:flex-col lg:items-start lg:justify-start">
+                <div>
+                  <p className="text-small font-medium text-navy-900">{cat.label}</p>
+                  <p className="text-small font-semibold text-ink-subtle tabular-nums">{score ? score.toFixed(1) : "–"}</p>
+                </div>
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-navy-700 lg:mt-3" aria-hidden="true">
+                  <path d={cat.icon} />
+                </svg>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </div>
   );
 }
@@ -142,6 +148,90 @@ export function ReviewCard({ review, clamp = false, className = "" }: { review: 
         </div>
       )}
     </article>
+  );
+}
+
+/* ---------- Reviews from Airbnb ---------- */
+
+/** Airbnb's logo mark, in Airbnb's coral, so guests can see where a review came from. */
+export function AirbnbLogo({ size = 18, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#FF385C" strokeWidth="2" strokeLinejoin="round" className={`shrink-0 ${className}`} role="img" aria-label="Airbnb">
+      <path d="M12 17.5c2.2 2.6 4.6 4 6.4 3.1 1.8-.9 2-3 .9-5.6L14.2 4.2C13.6 3 12.9 2.5 12 2.5s-1.6.5-2.2 1.7L4.7 15c-1.1 2.6-.9 4.7.9 5.6 1.8.9 4.2-.5 6.4-3.1z" />
+      <path d="M12 17.5c-1.6-2-3-3.9-3-5.4a3 3 0 0 1 6 0c0 1.5-1.4 3.4-3 5.4z" />
+    </svg>
+  );
+}
+
+const AIRBNB_AVATAR_TONES = ["bg-[#FDE7D9] text-[#9A3412]", "bg-[#DCEBFB] text-[#1D4ED8]", "bg-[#E7F3E6] text-[#166534]", "bg-[#F1E6F8] text-[#6B21A8]"];
+
+export function AirbnbReviewCard({ review, clamp = false, className = "" }: { review: AirbnbReview; clamp?: boolean; className?: string }) {
+  const [open, setOpen] = useState(false);
+  const long = review.text.length > 180;
+  const tone = AIRBNB_AVATAR_TONES[review.name.charCodeAt(0) % AIRBNB_AVATAR_TONES.length];
+
+  return (
+    <article className={`flex flex-col gap-3 ${className}`} aria-label={`Airbnb review by ${review.name}`}>
+      <header className="flex items-center gap-3">
+        <span className={`flex size-11 shrink-0 items-center justify-center rounded-full font-semibold ${tone}`} aria-hidden="true">
+          {review.name.charAt(0).toUpperCase()}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-semibold text-navy-900">{review.name}</p>
+          <p className="truncate text-[13px] text-ink-subtle">{review.memberFor}</p>
+        </div>
+        <AirbnbLogo size={22} />
+      </header>
+
+      <div className="flex flex-wrap items-center gap-2 text-[13px] text-ink-subtle">
+        <Stars value={review.rating} size={12} className="text-navy-900" />
+        <span aria-hidden="true">·</span>
+        <span>{review.date}</span>
+      </div>
+
+      <p className={`text-[15px] leading-relaxed text-ink-muted ${clamp && !open ? "line-clamp-4" : ""}`}>{review.text}</p>
+      {clamp && long && (
+        <button type="button" onClick={() => setOpen((o) => !o)} className="self-start text-small font-semibold text-navy-900 underline underline-offset-4">
+          {open ? "Show less" : "Read more"}
+        </button>
+      )}
+    </article>
+  );
+}
+
+/** "From Airbnb" block: rating line, the saved Airbnb reviews and a link to review us there. */
+export function AirbnbReviews({ limit, className = "" }: { limit?: number; className?: string }) {
+  const list = limit ? AIRBNB_REVIEWS.slice(0, limit) : AIRBNB_REVIEWS;
+  if (list.length === 0) return null;
+  return (
+    <div className={className}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <AirbnbLogo size={28} />
+          <div>
+            <p className="text-h3 text-navy-900">Reviews from Airbnb</p>
+            <p className="text-small text-ink-subtle">
+              <span className="font-semibold text-navy-900">★ {AIRBNB.rating.toFixed(2)}</span> from {AIRBNB.count} guests on Airbnb
+            </p>
+          </div>
+        </div>
+        <a href={AIRBNB.url} target="_blank" rel="noopener noreferrer" className="btn btn-outline self-start sm:self-auto">
+          See all on Airbnb
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8" /></svg>
+        </a>
+      </div>
+
+      <ul
+        aria-label="Reviews from Airbnb"
+        className="-mx-4 mt-6 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 md:mx-0 md:grid md:grid-cols-3 md:gap-8 md:overflow-visible md:px-0"
+      >
+        {list.map((r) => (
+          <li key={r.id} className="w-[85%] shrink-0 snap-start rounded-card border border-line bg-surface p-5 md:w-auto">
+            <AirbnbReviewCard review={r} clamp />
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

@@ -30,7 +30,9 @@ export default function Apartment() {
             <div className="card-overlay sticky top-28 flex flex-col gap-4 p-6">
               <p className="eyebrow">Book direct</p>
               <p className="font-display text-[28px] font-semibold leading-tight text-navy-900">
-                {settings ? `The whole house, from ${formatGBPShort(settings.nightlyRate)} a night` : "The whole house, booked direct"}
+                {settings ? (
+                  <>The whole house, from <span className="price">{formatGBPShort(settings.nightlyRate)}</span> a night</>
+                ) : "The whole house, booked direct"}
               </p>
               {settings && discountBadges(settings).length > 0 && (
                 <ul className="flex flex-wrap gap-1.5" aria-label="Discounts">

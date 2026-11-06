@@ -183,6 +183,15 @@
 
   p { text-wrap: pretty; }
 
+  /* Prices inside display headings: Cormorant's old-style numbers make "£110" read like "£IIO" */
+  .price {
+    font-family: var(--font-sans);
+    font-size: 0.86em;
+    font-weight: 600;
+    font-variant-numeric: lining-nums tabular-nums;
+    letter-spacing: -0.01em;
+  }
+
   a {
     color: var(--color-navy-700);
     text-underline-offset: 4px;
@@ -825,5 +834,27 @@
     height: auto;
     overflow: visible;
     clip: auto;
+  }
+}
+/* Print: only the guest receipt on the confirmation page */
+@media print {
+  @page { margin: 12mm; }
+  /* Hide everything that isn't the receipt or one of its wrappers */
+  body:has(.receipt-print) *:not(:has(.receipt-print)):not(.receipt-print):not(.receipt-print *) { display: none !important; }
+  /* Flatten the wrappers so the receipt starts at the top of the page */
+  body:has(.receipt-print),
+  body:has(.receipt-print) *:has(.receipt-print) {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    transform: none !important;
+    overflow: visible !important;
+  }
+  .receipt-print {
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 }

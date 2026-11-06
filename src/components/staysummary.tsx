@@ -1,13 +1,14 @@
 import { AnimatePresence, motion } from "motion/react";
 import { EASE } from "./reveal";
-import { formatDateUK, formatGBP, type Quote } from "../lib/booking";
+import { formatDateUK, formatGBP, guestLabel, type Quote } from "../lib/booking";
 import { WAKE_UP_MESSAGE, useSlow } from "../lib/hooks";
 import summaryImg from "../assets/images/livingroom3.webp";
 
 type Props = {
   checkIn: string | null;
   checkOut: string | null;
-  guests: number;
+  adults: number;
+  children: number;
   quote: Quote | null;
   quoteLoading: boolean;
   quoteError?: string | null;
@@ -21,13 +22,13 @@ function mmss(s: number) {
 
 /**
  * The price lines, exactly as the server's quote gives them:
- * "£160 × 7 nights", each discount as "−£x", the cleaning fee, then the total.
+ * "7 nights" with the accommodation price, each discount as "−£x", the cleaning fee, then the total.
  */
 export function QuoteBreakdown({ quote, totalLabel = "Total (GBP)" }: { quote: Quote; totalLabel?: string }) {
   return (
     <>
       <div className="quote__row">
-        <span>{formatGBP(quote.nightlyRate)} × {quote.nights} {quote.nights === 1 ? "night" : "nights"}</span>
+        <span>{quote.nights} {quote.nights === 1 ? "night" : "nights"}</span>
         <span>{formatGBP(quote.accommodationBeforeDiscounts)}</span>
       </div>
       {quote.discounts.map((d) => (
@@ -43,7 +44,7 @@ export function QuoteBreakdown({ quote, totalLabel = "Total (GBP)" }: { quote: Q
   );
 }
 
-export default function StaySummary({ checkIn, checkOut, guests, quote, quoteLoading, quoteError, holdSecondsLeft }: Props) {
+export default function StaySummary({ checkIn, checkOut, adults, children, quote, quoteLoading, quoteError, holdSecondsLeft }: Props) {
   const slow = useSlow(quoteLoading);
   return (
     <div className="card-overlay overflow-hidden">
@@ -52,9 +53,10 @@ export default function StaySummary({ checkIn, checkOut, guests, quote, quoteLoa
         <div>
           <p className="eyebrow">Your stay</p>
           <p className="mt-1 font-display text-[24px] font-semibold leading-tight text-navy-900">
-            Aklass Luxury Stay entire home
+            Aklass Luxury Stay
           </p>
-          <p className="text-[13px] text-ink-subtle">Wolverhampton WV10</p>
+          <p className="font-display text-[17px] italic text-navy-900/80">Your comfort, our priority</p>
+          <p className="mt-0.5 text-[13px] text-ink-subtle">Entire home</p>
         </div>
 
         <dl className="grid grid-cols-2 gap-3 border-y border-line py-4 text-small">
@@ -70,7 +72,7 @@ export default function StaySummary({ checkIn, checkOut, guests, quote, quoteLoa
           </div>
           <div className="col-span-2">
             <dt className="text-ink-subtle">Guests</dt>
-            <dd className="font-semibold text-navy-900">{guests} {guests === 1 ? "guest" : "guests"}</dd>
+            <dd className="font-semibold text-navy-900">{guestLabel(adults, children)}</dd>
           </div>
         </dl>
 
