@@ -70,8 +70,13 @@ export type PublicSettings = {
   checkOutBy: string;
   /** Set by the owner in the admin (Stay rules). Missing on older backends: use DEFAULT_HOUSE_RULES. */
   houseRules?: string[];
+  /** The "from £x a night" price set in the admin. Display only: booking prices come from /quote. */
   nightlyRate: number;
-  /** null = Fri/Sat cost the same as other nights. */
+  /** Per night for stays of 2+ nights. Missing on older backends: use nightlyRate. */
+  bookingRate?: number;
+  /** A 1-night stay costs this (any day). null/missing = same as other nights. */
+  singleNightRate?: number | null;
+  /** null = Fri/Sat/Sun cost the same as other nights. */
   weekendRate: number | null;
   cleaningFee: number;
   /** A percent of 0 means that discount is switched off. */
@@ -112,7 +117,7 @@ export function discountBadges(s: PublicSettings): string[] {
   const d = s.discounts;
   const out: string[] = [];
   if (d.midweekPercent > 0) out.push(`${d.midweekPercent}% off Mon–Thu nights`);
-  if (d.weeklyPercent > 0) out.push(`${d.weeklyPercent}% off weekly stays`);
+  if (d.weeklyPercent > 0) out.push(`${d.weeklyPercent}% off weekend stays`);
   if (d.monthlyPercent > 0) out.push(`${d.monthlyPercent}% off monthly stays`);
   return out;
 }
@@ -328,7 +333,8 @@ const pence = (n: number) => Math.round(n * 100) / 100;
 
 /**
  * DEMO ONLY: mirrors the server's pricing rules (API section 2.3) so demo prices match.
- * - Mon–Thu NIGHTS get the midweek % off; Fri–Sun nights are full price.
+ * - A 1-night stay costs the single-night price, if set (no midweek discount).
+ * - Mon–Thu NIGHTS get the midweek % off; Fri–Sun nights are full price (or the weekend rate).
  * - 28+ nights: monthly % off the nights' total; otherwise 7+ nights: weekly %. Never both.
  *   Applied after the midweek discount.
  * - The cleaning fee is charged once and never discounted.
@@ -344,13 +350,14 @@ export function demoQuote(checkIn: string, checkOut: string, guests: number, s: 
   if (guests < 1 || guests > s.maxGuests) throw new BookingError("MAX_GUESTS", `The apartment sleeps up to ${s.maxGuests} guests.`, 400);
 
   const d = s.discounts;
+  const single = nights === 1 && s.singleNightRate != null ? s.singleNightRate : null;
   const lines: QuoteLine[] = [];
   let midweekNights = 0;
   for (let date = checkIn; date < checkOut; date = addDays(date, 1)) {
     const day = fromISO(date).getDay(); // 0 Sun … 6 Sat
-    const weekend = day === 5 || day === 6; // Fri and Sat nights
-    const midweek = day >= 1 && day <= 4; // Mon–Thu nights
-    const fullPrice = weekend && s.weekendRate != null ? s.weekendRate : s.nightlyRate;
+    const weekend = single === null && (day === 5 || day === 6 || day === 0); // Fri, Sat and Sun nights
+    const midweek = single === null && day >= 1 && day <= 4; // Mon–Thu nights
+    const fullPrice = single ?? (weekend && s.weekendRate != null ? s.weekendRate : (s.bookingRate ?? s.nightlyRate));
     const discounted = midweek && d.midweekPercent > 0;
     if (discounted) midweekNights++;
     lines.push({ date, fullPrice, price: discounted ? pence(fullPrice * (1 - d.midweekPercent / 100)) : fullPrice, weekend, midweek });

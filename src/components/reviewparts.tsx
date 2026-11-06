@@ -1,10 +1,10 @@
 /**
  * Building blocks for reviews, shared by the home page section and the /reviews page:
- * star rows, the score summary (overall bars + 8 categories), a review card and the Airbnb fallback.
+ * star rows, the score summary (overall bars + 8 categories), a review card, and the Airbnb / Booking.com sections.
  */
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { Link } from "react-router";
-import { AIRBNB, AIRBNB_REVIEWS, CATEGORIES, formatMonth, getReviews, type AirbnbReview, type Review, type ReviewSummary } from "../lib/reviews";
+import { AIRBNB, AIRBNB_REVIEWS, BOOKING_COM, BOOKING_REVIEWS, CATEGORIES, formatMonth, getReviews, type AirbnbReview, type BookingReview, type Review, type ReviewSummary } from "../lib/reviews";
 
 /* ---------- Load reviews once per page ---------- */
 
@@ -199,39 +199,153 @@ export function AirbnbReviewCard({ review, clamp = false, className = "" }: { re
   );
 }
 
+/* ---------- Shared layout for reviews from another site ---------- */
+
+const ARROW = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8" /></svg>
+);
+
+const CARD_ITEM = "w-[85%] shrink-0 snap-start rounded-card border border-line bg-surface p-5 md:w-auto";
+
+/** Heading row (logo, title, rating line, "See all" link) and a card grid that swipes sideways on mobile. */
+function PlatformSection({ logo, title, rating, url, linkLabel, count, className = "", children }: {
+  logo: ReactNode; title: string; rating?: ReactNode; url: string; linkLabel: string; count: number; className?: string; children: ReactNode;
+}) {
+  // Match the columns to the number of cards so 1 or 2 reviews don't leave an empty gap
+  const cols = count >= 3 ? "md:grid-cols-3" : count === 2 ? "md:grid-cols-2" : "md:max-w-xl md:grid-cols-1";
+  return (
+    <div className={className}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          {logo}
+          <div>
+            <p className="text-h3 text-navy-900">{title}</p>
+            {rating && <p className="text-small text-ink-subtle">{rating}</p>}
+          </div>
+        </div>
+        <a href={url} target="_blank" rel="noopener noreferrer" className="btn btn-outline self-start sm:self-auto">
+          {linkLabel}
+          {ARROW}
+        </a>
+      </div>
+
+      <ul
+        aria-label={title}
+        className={`-mx-4 mt-6 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 md:mx-0 md:grid md:gap-8 md:overflow-visible md:px-0 ${cols}`}
+      >
+        {children}
+      </ul>
+    </div>
+  );
+}
+
 /** "From Airbnb" block: rating line, the saved Airbnb reviews and a link to review us there. */
 export function AirbnbReviews({ limit, className = "" }: { limit?: number; className?: string }) {
   const list = limit ? AIRBNB_REVIEWS.slice(0, limit) : AIRBNB_REVIEWS;
   if (list.length === 0) return null;
   return (
-    <div className={className}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-3">
-          <AirbnbLogo size={28} />
-          <div>
-            <p className="text-h3 text-navy-900">Reviews from Airbnb</p>
-            <p className="text-small text-ink-subtle">
-              <span className="font-semibold text-navy-900">★ {AIRBNB.rating.toFixed(2)}</span> from {AIRBNB.count} guests on Airbnb
-            </p>
-          </div>
-        </div>
-        <a href={AIRBNB.url} target="_blank" rel="noopener noreferrer" className="btn btn-outline self-start sm:self-auto">
-          See all on Airbnb
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8" /></svg>
-        </a>
-      </div>
+    <PlatformSection
+      logo={<AirbnbLogo size={28} />}
+      title="Reviews from Airbnb"
+      rating={<><span className="font-semibold text-navy-900">★ {AIRBNB.rating.toFixed(2)}</span> from {AIRBNB.count} guests on Airbnb</>}
+      url={AIRBNB.url}
+      linkLabel="See all on Airbnb"
+      count={list.length}
+      className={className}
+    >
+      {list.map((r) => (
+        <li key={r.id} className={CARD_ITEM}>
+          <AirbnbReviewCard review={r} clamp />
+        </li>
+      ))}
+    </PlatformSection>
+  );
+}
 
-      <ul
-        aria-label="Reviews from Airbnb"
-        className="-mx-4 mt-6 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 md:mx-0 md:grid md:grid-cols-3 md:gap-8 md:overflow-visible md:px-0"
-      >
-        {list.map((r) => (
-          <li key={r.id} className="w-[85%] shrink-0 snap-start rounded-card border border-line bg-surface p-5 md:w-auto">
-            <AirbnbReviewCard review={r} clamp />
-          </li>
-        ))}
-      </ul>
-    </div>
+/* ---------- Reviews from Booking.com ---------- */
+
+/** Booking.com's logo mark (white "B." on their dark blue) so guests can see where a review came from. */
+export function BookingLogo({ size = 18, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={`shrink-0 ${className}`} role="img" aria-label="Booking.com">
+      <rect width="24" height="24" rx="5" fill="#003580" />
+      <path d="M6.5 5.5h4.6c2.3 0 3.6 1.1 3.6 2.9 0 1.1-.6 2-1.6 2.4 1.4.4 2.2 1.4 2.2 2.8 0 2.1-1.5 3.4-4 3.4H6.5zm2.4 2v3h1.9c1 0 1.6-.6 1.6-1.5s-.6-1.5-1.6-1.5zm0 4.9v3.6h2.2c1.2 0 1.9-.7 1.9-1.8s-.7-1.8-1.9-1.8z" fill="#fff" />
+      <circle cx="18.2" cy="16.2" r="1.6" fill="#009FE3" />
+    </svg>
+  );
+}
+
+/** Booking.com-style score badge, e.g. "9.0" in a dark blue square. */
+function BookingScore({ value }: { value: number }) {
+  return (
+    <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-[5px] rounded-bl-none bg-[#003580] px-1.5 text-[12px] font-bold tabular-nums text-white" role="img" aria-label={`Scored ${value} out of 10`}>
+      {Number.isInteger(value) ? value : value.toFixed(1)}
+    </span>
+  );
+}
+
+export function BookingReviewCard({ review, clamp = false, className = "" }: { review: BookingReview; clamp?: boolean; className?: string }) {
+  const [open, setOpen] = useState(false);
+  const long = review.text.length > 180;
+  const tone = AIRBNB_AVATAR_TONES[review.name.charCodeAt(0) % AIRBNB_AVATAR_TONES.length];
+
+  return (
+    <article className={`flex flex-col gap-3 ${className}`} aria-label={`Booking.com review by ${review.name}`}>
+      <header className="flex items-center gap-3">
+        <span className={`flex size-11 shrink-0 items-center justify-center rounded-full font-semibold ${tone}`} aria-hidden="true">
+          {review.name.charAt(0).toUpperCase()}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-semibold text-navy-900" title={review.name}>{review.name}</p>
+          <p className="truncate text-[13px] text-ink-subtle">{review.country}</p>
+        </div>
+        <BookingLogo size={22} />
+      </header>
+
+      {(review.score != null || review.date) && (
+        <div className="flex flex-wrap items-center gap-2 text-[13px] text-ink-subtle">
+          {review.score != null && <BookingScore value={review.score} />}
+          {review.score != null && review.date && <span aria-hidden="true">·</span>}
+          {review.date && <span>{review.date}</span>}
+        </div>
+      )}
+
+      {review.title && (
+        <p className={`font-semibold leading-snug text-navy-900 ${clamp && !open ? "line-clamp-2" : ""}`}>{review.title}</p>
+      )}
+      <p className={`whitespace-pre-line text-[15px] leading-relaxed text-ink-muted ${clamp && !open ? "line-clamp-4" : ""}`}>{review.text}</p>
+      {clamp && long && (
+        <button type="button" onClick={() => setOpen((o) => !o)} className="self-start text-small font-semibold text-navy-900 underline underline-offset-4">
+          {open ? "Show less" : "Read more"}
+        </button>
+      )}
+    </article>
+  );
+}
+
+/** "From Booking.com" block: score line, the saved Booking.com reviews and a link to the listing. */
+export function BookingReviews({ limit, className = "" }: { limit?: number; className?: string }) {
+  const list = limit ? BOOKING_REVIEWS.slice(0, limit) : BOOKING_REVIEWS;
+  if (list.length === 0) return null;
+  const { score, label, count, url } = BOOKING_COM;
+  return (
+    <PlatformSection
+      logo={<BookingLogo size={28} />}
+      title="Reviews from Booking.com"
+      rating={score != null && (
+        <><span className="font-semibold text-navy-900">{score.toFixed(1)}/10{label && ` · ${label}`}</span> from {count} {count === 1 ? "guest" : "guests"} on Booking.com</>
+      )}
+      url={url}
+      linkLabel="See all on Booking.com"
+      count={list.length}
+      className={className}
+    >
+      {list.map((r) => (
+        <li key={r.id} className={CARD_ITEM}>
+          <BookingReviewCard review={r} clamp />
+        </li>
+      ))}
+    </PlatformSection>
   );
 }
 

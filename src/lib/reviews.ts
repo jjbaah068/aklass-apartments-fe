@@ -40,6 +40,43 @@ export const AIRBNB_REVIEWS: AirbnbReview[] = [
   },
 ];
 
+export const BOOKING_COM = {
+  /** Overall score out of 10 as Booking.com shows it, e.g. 9.4. Leave null to hide the score line. */
+  score: null as number | null,
+  /** Booking.com's word for the score, e.g. "Superb". */
+  label: "",
+  count: 2,
+  url: "https://www.booking.com/hotel/gb/aklass-luxury-stay-your-comfort-our-priority.en-gb.html",
+};
+
+/** Reviews copied from our Booking.com listing. Add new ones at the top. */
+export type BookingReview = {
+  id: string;
+  name: string;
+  country: string;
+  /** Score out of 10, if Booking.com shows one. */
+  score?: number;
+  /** When they reviewed, e.g. "October 2026". */
+  date?: string;
+  /** The review's headline, if they wrote one. */
+  title?: string;
+  /** Use a blank line between paragraphs. */
+  text: string;
+};
+
+export const BOOKING_REVIEWS: BookingReview[] = [
+  {
+    id: "bk1", name: "Limaechodeltauniform", country: "United Kingdom", score: 10, date: "October 2026",
+    title: "Would book again.",
+    text: "The house was beautiful and had everything we needed. We stayed as a family of six, and it was very spacious, with plenty of room for all of my children. Our host, Theresa, was lovely and always just a phone call away if we had any questions or needed anything. She made us feel so welcome and was incredibly kind and helpful throughout our stay. Thank you, Theresa, for being such a wonderful host and making our stay even more special. We would happily stay again and highly recommend this lovely home!",
+  },
+  {
+    id: "bk2", name: "Kayla", country: "United Kingdom", score: 10, date: "September 2026",
+    title: "We had the loveliest stay! 💕 The apartment was so cute, cosy and beautifully decorated — absolutely perfect for a girls’…",
+    text: "I had a really lovely stay at this apartment. The place was clean, comfortable and beautifully presented, and it had everything we needed for a relaxing stay. The apartment felt modern, cosy and welcoming, and the location was really convenient.\n\nThe host was friendly, helpful and easy to communicate with, which made the whole experience even better. Everything was straightforward from check-in to check-out, and we felt very comfortable during our stay.\n\nI would definitely recommend this apartment to anyone looking for somewhere clean, comfortable and enjoyable to stay. I’d happily stay here again!",
+  },
+];
+
 /* ---------- Types ---------- */
 
 export type CategoryKey = "cleanliness" | "accuracy" | "checkIn" | "communication" | "location" | "value" | "kitchen" | "parking";

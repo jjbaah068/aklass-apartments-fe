@@ -5,7 +5,7 @@ import contactImg from "../assets/images/contacthero.webp";
 
 /* Fill in before going live */
 const EMAIL = "aklassdynamic@gmail.com";
-const WHATSAPP_URL = "https://wa.me/447947377995";
+const WHATSAPP_URL = "https://wa.me/447486560329";
 const INSTAGRAM_URL = "https://www.instagram.com/aklassluxurystay";
 
 /* The photo's studio background colour — the whole hero uses it so the photo blends in */

@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { Link } from "react-router";
 import Navbar from "../components/navbar";
 import Footer from "../components/footer";
-import { AirbnbReviews, RatingSummary, ReviewCard, ScoreHeading, useReviews } from "../components/reviewparts";
+import { AirbnbReviews, BookingReviews, RatingSummary, ReviewCard, ScoreHeading, useReviews } from "../components/reviewparts";
 import { MIN_REVIEWS_TO_SHOW, sortReviews, type ReviewSort } from "../lib/reviews";
 
 type Filter = "all" | 5 | 4 | "3-";
@@ -68,6 +68,7 @@ export default function ReviewsPage() {
             <>
               <h1 id={`${id}-title`} className="mt-3 text-h1 text-navy-900 md:text-[52px]">What our guests say</h1>
               <AirbnbReviews className="mt-8" />
+              <BookingReviews className="mt-12 border-t border-line pt-10" />
               <div className="mt-10">
                 <Link to="/reviews/new" className="btn btn-primary">Leave a review</Link>
               </div>
@@ -144,6 +145,7 @@ export default function ReviewsPage() {
               )}
 
               <AirbnbReviews className="mt-16 border-t border-line pt-10" />
+              <BookingReviews className="mt-12 border-t border-line pt-10" />
 
               {/* Nudge to book */}
               <div className="mt-16 flex flex-col items-start gap-4 rounded-card bg-navy-900 p-6 text-white sm:flex-row sm:items-center sm:justify-between md:p-8">
