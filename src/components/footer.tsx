@@ -133,8 +133,13 @@ export default function Footer({ showCta = true }: { showCta?: boolean }) {
                             <span className="mt-1.5 text-[10px] font-semibold tracking-[0.32em] text-navy-200">LUXURY STAY</span>
                         </span>
                     </Link>
-                    <p className="tagline mt-5 text-gold-200">-Your comfort, our priority-</p>
-                    <p className="mt-3 max-w-xs text-small text-navy-200">
+                    <div className="mt-6">
+                        <p className="tagline text-gold-200">Your home away from home</p>
+                        <p className="mt-1.5 font-display text-[19px] italic leading-snug text-gold-200/75">
+                            — Your comfort, our priority —
+                        </p>
+                    </div>
+                    <p className="mt-4 max-w-xs text-small text-navy-200">
                         An entire four-bedroom house for up to seven guests in Bushbury, Wolverhampton.
                     </p>
                 </RevealItem>
