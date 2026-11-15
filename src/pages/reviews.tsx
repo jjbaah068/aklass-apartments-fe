@@ -151,7 +151,7 @@ export default function ReviewsPage() {
               <div className="mt-16 flex flex-col items-start gap-4 rounded-card bg-navy-900 p-6 text-white sm:flex-row sm:items-center sm:justify-between md:p-8">
                 <div>
                   <p className="text-h3">Ready for your own stay?</p>
-                  <p className="text-small text-white/75">The whole house, up to 7 guests, with free parking.</p>
+                  <p className="text-small text-white/75">Own the whole house, up to 7 guests, with free parking.</p>
                 </div>
                 <Link to="/book" className="btn btn-cta">Check availability</Link>
               </div>

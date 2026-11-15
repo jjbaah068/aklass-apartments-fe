@@ -3,6 +3,7 @@ import Navbar from "../components/navbar";
 import ApartmentHero from "../components/apartmenthero";
 import Overview from "../components/overview";
 import RoomExplorer from "../components/roomexplorer";
+import VideoTour from "../components/videotour";
 import ReadyToStay from "../components/readytostay";
 import Footer from "../components/footer";
 import { discountBadges, formatGBPShort } from "../lib/booking";
@@ -22,6 +23,7 @@ export default function Apartment() {
           {/* Left column: every page section goes in here, in order */}
           <div className="flex min-w-0 flex-col gap-16 md:gap-20">
             <Overview />
+            <VideoTour />
             <RoomExplorer />
           </div>
 
