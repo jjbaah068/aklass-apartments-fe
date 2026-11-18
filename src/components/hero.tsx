@@ -19,13 +19,11 @@ const HERO_IMAGE = hero1;
 const HERO_MODE = "video" as "video" | "photo";
 
 /*
-  Background video. Should be a short, silent, compressed loop (~10–15 s, 720p, a few MB).
-  /videos/hero-loop.mp4 is used if it exists. While testing locally only, it falls back to
-  the full tour video so you can see the layout — that file is too heavy for a live hero.
+  Background video.
+  TEMPORARY: uses the full 63 MB tour. Swap for a short, silent, compressed loop
+  (~10–15 s, 720p, a few MB) at /videos/hero-loop.mp4 as soon as one exists.
 */
-const HERO_VIDEO_SOURCES = import.meta.env.DEV
-  ? ["/videos/hero-loop.mp4", "/videos/apartment-tour.mp4"]
-  : ["/videos/hero-loop.mp4"];
+const HERO_VIDEO_SOURCES = ["/videos/apartment-tour.mp4"];
 
 
 const MAX_GUESTS = 7;
@@ -293,19 +291,21 @@ export default function Hero() {
       {isVideo ? (
         /* Full-bleed: the video covers the whole hero, edge to edge, booking bar included */
         <div className="relative isolate flex min-h-[calc(100svh-68px)] md:min-h-[calc(100svh-80px)] flex-col justify-end overflow-hidden bg-navy-950">
-          {/* Photo first: paints instantly and stays as the fallback */}
-          <motion.img
-            src={HERO_IMAGE}
-            alt=""
-            width={1600}
-            height={1200}
-            fetchPriority="high"
-            decoding="async"
-            initial="hidden"
-            animate="show"
-            variants={imageReveal}
-            className="absolute inset-0 -z-20 h-full w-full object-cover"
-          />
+          {/* Photo only for visitors who turned off motion / data (no video for them) */}
+          {!useVideo && (
+            <motion.img
+              src={HERO_IMAGE}
+              alt=""
+              width={1600}
+              height={1200}
+              fetchPriority="high"
+              decoding="async"
+              initial="hidden"
+              animate="show"
+              variants={imageReveal}
+              className="absolute inset-0 -z-20 h-full w-full object-cover"
+            />
+          )}
 
           {useVideo && (
             <video
